@@ -1,0 +1,454 @@
+* {
+  box-sizing: border-box;
+}
+
+.register-page {
+  position: relative;
+
+  min-height: 100vh;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 35px 20px;
+
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+.register-overlay {
+  position: absolute;
+  inset: 0;
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(238, 246, 255, 0.68),
+      rgba(255, 255, 255, 0.2)
+    );
+}
+
+.register-card {
+  position: relative;
+  z-index: 1;
+
+  width: 100%;
+  max-width: 620px;
+
+  padding: 34px 38px;
+
+  background:
+    rgba(255, 255, 255, 0.96);
+
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.8);
+
+  border-radius: 22px;
+
+  box-shadow:
+    0 25px 60px
+    rgba(15, 23, 42, 0.18);
+
+  backdrop-filter: blur(10px);
+}
+
+.register-icon-circle {
+  width: 52px;
+  height: 52px;
+
+  margin: 0 auto 14px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #eff6ff;
+
+  color: #2563eb;
+
+  border-radius: 50%;
+
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.register-title {
+  margin: 0;
+
+  color: #0b2c65;
+
+  text-align: center;
+
+  font-size: 27px;
+  font-weight: 800;
+}
+
+.register-subtitle {
+  margin: 6px 0 22px;
+
+  color: #64748b;
+
+  text-align: center;
+
+  font-size: 13px;
+}
+
+.register-role-tabs {
+  display: grid;
+  grid-template-columns:
+    repeat(3, 1fr);
+
+  gap: 6px;
+
+  margin-bottom: 24px;
+
+  padding: 5px;
+
+  background: #f1f5f9;
+
+  border-radius: 12px;
+}
+
+.register-role-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 7px;
+
+  padding: 10px 8px;
+
+  background: transparent;
+
+  color: #475569;
+
+  border: none;
+  border-radius: 9px;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.register-role-btn.active {
+  background: #ffffff;
+
+  color: #2563eb;
+
+  box-shadow:
+    0 2px 8px
+    rgba(15, 23, 42, 0.08);
+}
+
+.register-role-btn span {
+  font-size: 16px;
+}
+
+.register-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 14px;
+}
+
+.register-field {
+  margin-bottom: 14px;
+}
+
+.register-field label {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color: #1e293b;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.register-input-box {
+  position: relative;
+}
+
+.register-input-icon {
+  position: absolute;
+
+  left: 13px;
+  top: 50%;
+
+  transform:
+    translateY(-50%);
+
+  z-index: 2;
+
+  color: #64748b;
+
+  font-size: 13px;
+
+  pointer-events: none;
+}
+
+.register-input-box input {
+  width: 100%;
+  height: 44px;
+
+  padding:
+    0 13px
+    0 39px;
+
+  background: #ffffff;
+
+  color: #0f172a;
+
+  border:
+    1px solid #cbd5e1;
+
+  border-radius: 9px;
+
+  outline: none;
+
+  font-size: 13px;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.register-input-box input:focus {
+  border-color: #2563eb;
+
+  box-shadow:
+    0 0 0 3px
+    rgba(37, 99, 235, 0.1);
+}
+
+.register-input-box input::placeholder {
+  color: #94a3b8;
+}
+
+.register-field select {
+  width: 100%;
+  height: 44px;
+
+  padding: 0 12px;
+
+  background: #ffffff;
+
+  color: #334155;
+
+  border:
+    1px solid #cbd5e1;
+
+  border-radius: 9px;
+
+  outline: none;
+
+  font-size: 13px;
+
+  cursor: pointer;
+}
+
+.register-field select:focus {
+  border-color: #2563eb;
+
+  box-shadow:
+    0 0 0 3px
+    rgba(37, 99, 235, 0.1);
+}
+
+.register-hospital-note {
+  display: flex;
+
+  gap: 12px;
+
+  margin:
+    4px 0 16px;
+
+  padding: 13px 14px;
+
+  background: #eff6ff;
+
+  border:
+    1px solid #bfdbfe;
+
+  border-radius: 10px;
+}
+
+.register-hospital-note > span {
+  font-size: 20px;
+}
+
+.register-hospital-note strong {
+  display: block;
+
+  margin-bottom: 3px;
+
+  color: #1e3a8a;
+
+  font-size: 12px;
+}
+
+.register-hospital-note p {
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.register-consent {
+  display: flex;
+  align-items: flex-start;
+
+  gap: 9px;
+
+  margin:
+    4px 0 16px;
+
+  color: #475569;
+
+  font-size: 11px;
+  line-height: 1.45;
+
+  cursor: pointer;
+}
+
+.register-consent input {
+  margin-top: 2px;
+
+  accent-color: #2563eb;
+}
+
+.register-error {
+  margin-bottom: 14px;
+
+  padding: 10px 12px;
+
+  background: #fef2f2;
+
+  color: #991b1b;
+
+  border:
+    1px solid #fecaca;
+
+  border-radius: 8px;
+
+  font-size: 12px;
+}
+
+.register-submit-btn {
+  width: 100%;
+
+  padding: 12px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #2563eb,
+      #1d4ed8
+    );
+
+  color: #ffffff;
+
+  border: none;
+  border-radius: 9px;
+
+  font-size: 13px;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 8px 18px
+    rgba(37, 99, 235, 0.2);
+
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
+}
+
+.register-submit-btn:hover:not(:disabled) {
+  transform:
+    translateY(-1px);
+
+  box-shadow:
+    0 10px 22px
+    rgba(37, 99, 235, 0.28);
+}
+
+.register-submit-btn:disabled {
+  opacity: 0.65;
+
+  cursor: not-allowed;
+}
+
+.register-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 5px;
+
+  margin-top: 18px;
+
+  color: #64748b;
+
+  font-size: 12px;
+}
+
+.register-footer button {
+  padding: 0;
+
+  background: transparent;
+
+  color: #2563eb;
+
+  border: none;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.register-footer button:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 650px) {
+  .register-page {
+    padding: 20px 14px;
+  }
+
+  .register-card {
+    padding: 28px 20px;
+  }
+
+  .register-grid {
+    grid-template-columns: 1fr;
+
+    gap: 0;
+  }
+
+  .register-title {
+    font-size: 23px;
+  }
+}

@@ -1,0 +1,523 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+/* =========================================
+   FULL BACKGROUND IMAGE
+========================================= */
+
+.organ-login-page {
+  width: 100%;
+  min-height: 100vh;
+
+  position: relative;
+
+  background-repeat: no-repeat;
+  background-position: center center;
+
+  /* show the full generated background */
+  background-size: 100% 100%;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+}
+
+/* =========================================
+   LOGIN CARD
+========================================= */
+
+.organ-login-card {
+  position: absolute;
+
+  top: 50%;
+  left: 77%;
+
+  transform:
+    translate(-50%, -50%);
+
+  width: 390px;
+  max-width: 90%;
+
+  padding:
+    34px 36px 32px;
+
+  background:
+    rgba(255, 255, 255, 0.97);
+
+  border-radius:
+    20px;
+
+  border:
+    1px solid
+    rgba(226, 232, 240, 0.95);
+
+  box-shadow:
+    0 20px 50px
+    rgba(15, 23, 42, 0.2);
+}
+
+/* =========================================
+   BACK TO HOME
+========================================= */
+
+.back-home-link {
+  display: inline-flex;
+  align-items: center;
+
+  margin-bottom: 18px;
+  padding: 0;
+
+  border: none;
+  background: transparent;
+
+  color: #64748b;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.back-home-link:hover {
+  color: #2563eb;
+  transform: translateX(-2px);
+}
+
+/* =========================================
+   LOCK ICON
+========================================= */
+
+.lock-circle {
+  width: 52px;
+  height: 52px;
+
+  margin:
+    0 auto 16px;
+
+  border-radius:
+    50%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background:
+    #eff6ff;
+
+  font-size:
+    20px;
+}
+
+/* =========================================
+   TITLE
+========================================= */
+
+.login-title {
+  margin: 0;
+
+  text-align: center;
+
+  font-size:
+    27px;
+
+  font-weight:
+    800;
+
+  color:
+    #0f2d63;
+}
+
+.login-subtitle {
+  margin:
+    7px 0 28px;
+
+  text-align:
+    center;
+
+  color:
+    #64748b;
+
+  font-size:
+    13px;
+}
+
+/* =========================================
+   LABEL
+========================================= */
+
+.login-label {
+  display: block;
+
+  margin:
+    0 0 7px;
+
+  font-size:
+    12px;
+
+  font-weight:
+    700;
+
+  color:
+    #0f172a;
+}
+
+/* =========================================
+   INPUT
+========================================= */
+
+.login-input-box {
+  display: flex;
+  align-items: center;
+
+  width: 100%;
+
+  height: 44px;
+
+  margin-bottom:
+    18px;
+
+  background:
+    #ffffff;
+
+  border:
+    1px solid #cbd5e1;
+
+  border-radius:
+    8px;
+}
+
+.login-input-box:focus-within {
+  border-color:
+    #2563eb;
+
+  box-shadow:
+    0 0 0 2px
+    rgba(37, 99, 235, 0.1);
+}
+
+.input-icon {
+  padding-left:
+    13px;
+
+  font-size:
+    13px;
+
+  color:
+    #94a3b8;
+}
+
+.login-input-box input {
+  flex: 1;
+
+  height: 100%;
+
+  padding:
+    0 13px;
+
+  border:
+    none;
+
+  outline:
+    none;
+
+  background:
+    transparent;
+
+  font-size:
+    13px;
+
+  color:
+    #0f172a;
+}
+
+.login-input-box input::placeholder {
+  color:
+    #94a3b8;
+}
+
+/* =========================================
+   REMEMBER / FORGOT
+========================================= */
+
+.login-options {
+  display: flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    space-between;
+
+  margin:
+    2px 0 20px;
+}
+
+.remember-box {
+  display: flex;
+
+  align-items:
+    center;
+
+  gap: 7px;
+
+  color:
+    #334155;
+
+  font-size:
+    12px;
+
+  cursor:
+    pointer;
+}
+
+.remember-box input {
+  width:
+    14px;
+
+  height:
+    14px;
+}
+
+.forgot-link {
+  border:
+    none;
+
+  background:
+    transparent;
+
+  padding:
+    0;
+
+  color:
+    #2563eb;
+
+  font-size:
+    12px;
+
+  cursor:
+    pointer;
+}
+
+.forgot-link:hover {
+  text-decoration:
+    underline;
+}
+
+/* =========================================
+   ERROR
+========================================= */
+
+.login-error {
+  margin-bottom:
+    14px;
+
+  padding:
+    10px 12px;
+
+  border:
+    1px solid #fca5a5;
+
+  background:
+    #fef2f2;
+
+  color:
+    #991b1b;
+
+  border-radius:
+    7px;
+
+  font-size:
+    12px;
+}
+
+/* =========================================
+   LOGIN BUTTON
+========================================= */
+
+.main-login-btn {
+  width:
+    100%;
+
+  height:
+    44px;
+
+  border:
+    none;
+
+  border-radius:
+    8px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #2563eb,
+      #1d4ed8
+    );
+
+  color:
+    #ffffff;
+
+  font-size:
+    14px;
+
+  font-weight:
+    800;
+
+  cursor:
+    pointer;
+
+  box-shadow:
+    0 7px 17px
+    rgba(37, 99, 235, 0.22);
+
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.main-login-btn:hover {
+  transform:
+    translateY(-1px);
+
+  box-shadow:
+    0 9px 20px
+    rgba(37, 99, 235, 0.28);
+}
+
+.main-login-btn:disabled {
+  opacity:
+    0.65;
+
+  cursor:
+    not-allowed;
+
+  transform:
+    none;
+}
+
+/* =========================================
+   REGISTER
+========================================= */
+
+.register-section {
+  margin-top:
+    24px;
+
+  display:
+    flex;
+
+  justify-content:
+    center;
+
+  align-items:
+    center;
+
+  gap:
+    6px;
+
+  font-size:
+    12px;
+
+  color:
+    #64748b;
+}
+
+.register-section button {
+  border:
+    none;
+
+  padding:
+    0;
+
+  background:
+    transparent;
+
+  color:
+    #2563eb;
+
+  font-size:
+    12px;
+
+  font-weight:
+    700;
+
+  cursor:
+    pointer;
+
+  text-decoration:
+    underline;
+}
+
+/* =========================================
+   LAPTOP
+========================================= */
+
+@media (max-width: 1200px) {
+  .organ-login-card {
+    left: 77%;
+    width: 360px;
+  }
+}
+
+/* =========================================
+   TABLET
+========================================= */
+
+@media (max-width: 900px) {
+  .organ-login-page {
+    background-size: cover;
+    background-position: right center;
+  }
+
+  .organ-login-card {
+    left: 50%;
+
+    transform:
+      translate(-50%, -50%);
+
+    width: 390px;
+  }
+}
+
+/* =========================================
+   MOBILE
+========================================= */
+
+@media (max-width: 500px) {
+  .organ-login-page {
+    background-size: cover;
+    background-position: right center;
+  }
+
+  .organ-login-card {
+    left: 50%;
+
+    transform:
+      translate(-50%, -50%);
+
+    width:
+      calc(100% - 30px);
+
+    padding:
+      28px 22px;
+  }
+}

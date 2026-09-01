@@ -1,130 +1,233 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import "./LoginPage.css";
 
 export default function LoginPage() {
   const { login, setCurrentPage } = useAuth();
-  const [formData, setFormData] = useState({ email: "", password: "" });
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  // Load remembered email when login page opens
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem(
+      "organSyncRememberedEmail"
+    );
+
+    if (rememberedEmail) {
+      setEmail(rememberedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     setError("");
     setLoading(true);
 
     try {
-      await login(formData.email, formData.password);
-      // Login successful hone par dashboard ya home par navigate karein:
-      if (setCurrentPage) {
-        setCurrentPage("dashboard");
+      const cleanEmail = email.trim();
+
+      await login(cleanEmail, password);
+
+      // Remember only the email.
+      // Never store the user's password in localStorage.
+      if (rememberMe) {
+        localStorage.setItem(
+          "organSyncRememberedEmail",
+          cleanEmail
+        );
+      } else {
+        localStorage.removeItem(
+          "organSyncRememberedEmail"
+        );
       }
     } catch (err) {
-      setError(err.message || "Invalid credentials. Please try again.");
+      setError(
+        err.message ||
+          "Invalid email or password"
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        {/* Back to Home Navigation */}
+    <div
+      className="organ-login-page"
+      style={{
+        backgroundImage: `url(${process.env.PUBLIC_URL}/images/organsync-login-bg.jpg)`
+      }}
+    >
+      <div className="organ-login-card">
+
+        {/* OPTIONAL BACK TO HOME BUTTON
+
         <button
           type="button"
-          onClick={() => setCurrentPage("home")}
-          style={styles.backBtn}
+          className="back-home-link"
+          onClick={() =>
+            setCurrentPage("home")
+          } 
         >
-          &larr; Back to Home
-        </button>
+          ← Back to Home
+        </button> */}
 
-        <h1 style={styles.title}>OrganSync</h1>
-        <h2 style={styles.subtitle}>AI-Based Organ Donor &amp; Transplantation Portal</h2>
+       
 
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <label style={styles.label}>
+        <div className="lock-circle">
+          🔒
+        </div>
+
+        <h1 className="login-title">
+          Welcome Back
+        </h1>
+
+        <p className="login-subtitle">
+          Login to your OrganSync account
+        </p>
+
+        <form
+          onSubmit={handleSubmit}
+          autoComplete="on"
+        >
+          {/* EMAIL */}
+
+          <label
+            className="login-label"
+            htmlFor="email"
+          >
             Email / Username
+          </label>
+
+          <div className="login-input-box">
+            <span className="input-icon">
+              ✉
+            </span>
+
             <input
-              type="text"
+              id="email"
               name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="user@example.com"
+              type="email"
+              value={email}
+              onChange={(e) =>
+                setEmail(e.target.value)
+              }
+              placeholder="Enter your email"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
               required
-              style={styles.input}
             />
-          </label>
+          </div>
 
-          <label style={styles.label}>
+          {/* PASSWORD */}
+
+          <label
+            className="login-label"
+            htmlFor="password"
+          >
             Password
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              required
-              style={styles.input}
-            />
           </label>
 
-          {error && <div style={styles.error}>{error}</div>}
+          <div className="login-input-box">
+            <span className="input-icon">
+              🔒
+            </span>
 
-          <button type="submit" disabled={loading} style={styles.button}>
-            {loading ? "Signing in..." : "Log In"}
+            <input
+              id="password"
+              name="password"
+              type="password"
+              value={password}
+              onChange={(e) =>
+                setPassword(e.target.value)
+              }
+              placeholder="Enter your password"
+              autoComplete="current-password"
+              required
+            />
+          </div>
+
+          {/* OPTIONS */}
+
+          <div className="login-options">
+
+            <label className="remember-box">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) =>
+                  setRememberMe(
+                    e.target.checked
+                  )
+                }
+              />
+
+              <span>
+                Remember me
+              </span>
+            </label>
+
+            <button
+              type="button"
+              className="forgot-password-btn"
+              onClick={() => {
+                alert(
+                  "Forgot password feature will be added soon."
+                );
+              }}
+            >
+              Forgot password?
+            </button>
+
+          </div>
+
+          {/* ERROR */}
+
+          {error && (
+            <div className="login-error">
+              ⚠️ {error}
+            </div>
+          )}
+
+          {/* LOGIN BUTTON */}
+
+          <button
+            type="submit"
+            className="main-login-btn"
+            disabled={loading}
+          >
+            {loading
+              ? "Logging in..."
+              : "↪ Log In"}
           </button>
+
         </form>
 
-        <p style={styles.footerText}>
-          Don't have an account?{" "}
-          <button onClick={() => setCurrentPage("register")} style={styles.linkBtn}>
-            Register
+        {/* REGISTER */}
+
+        <div className="register-section">
+          <span>
+            Don't have an account?
+          </span>
+
+          <button
+            type="button"
+            onClick={() =>
+              setCurrentPage("register")
+            }
+          >
+            Register Now
           </button>
-        </p>
+        </div>
+
       </div>
     </div>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "#dbeafe",
-    fontFamily: "system-ui, -apple-system, sans-serif",
-    padding: "20px",
-  },
-  card: {
-    width: "100%",
-    maxWidth: 380,
-    background: "#ffffff",
-    borderRadius: 12,
-    padding: "36px 32px",
-    boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
-  },
-  backBtn: {
-    background: "none",
-    border: "none",
-    color: "#6b7280",
-    fontSize: "13px",
-    fontWeight: "500",
-    cursor: "pointer",
-    padding: 0,
-    marginBottom: "16px",
-    display: "block",
-  },
-  title: { fontSize: 26, fontWeight: 700, margin: 0, color: "#111827" },
-  subtitle: { fontSize: 13, fontWeight: 400, color: "#6b7280", marginTop: 4, marginBottom: 24, lineHeight: "1.4" },
-  form: { display: "flex", flexDirection: "column", gap: 16 },
-  label: { display: "flex", flexDirection: "column", gap: 6, fontSize: 13, fontWeight: 500, color: "#374151" },
-  input: { padding: "10px 12px", fontSize: 14, borderRadius: 8, border: "1px solid #d1d5db", outline: "none" },
-  button: { marginTop: 8, padding: "12px", fontSize: 15, fontWeight: 600, color: "#fff", background: "#2563eb", border: "none", borderRadius: 8, cursor: "pointer" },
-  error: { fontSize: 13, color: "#dc2626", background: "#fee2e2", padding: "8px 10px", borderRadius: 6, textAlign: "center" },
-  footerText: { fontSize: 13, color: "#6b7280", textAlign: "center", marginTop: 20 },
-  linkBtn: { background: "none", border: "none", color: "#2563eb", fontWeight: 600, cursor: "pointer", textDecoration: "underline" },
-};

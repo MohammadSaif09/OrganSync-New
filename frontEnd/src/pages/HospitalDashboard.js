@@ -1,358 +1,1392 @@
-import React, { useState, useEffect } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useState
+} from "react";
+
+import PortalSidebar from "../components/PortalSidebar";
 import { useAuth } from "../context/AuthContext";
 import { authFetch } from "../config/api";
 
-// ASSUMED ENDPOINTS — adjust to match your backend if paths differ:
-//   GET  /hospitals/:hospitalId/stats                        -> dashboard metric cards
-//   POST /match/hospital  body: { organ, bloodGroup }         -> AI compatibility scoring, returns { donorOrganId, matches: [...] }
-//   POST /allocations     body: { donorOrganId, recipientId } -> initiates an allocation
-//   GET  /hospitals/:hospitalId/operations                    -> scheduled operations table
-
-const ORGANS = ["Kidney", "Liver", "Heart", "Lungs", "Pancreas", "Cornea"];
-const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+import "./HospitalDashboard.css";
 
 export default function HospitalDashboard() {
   const { user, logout } = useAuth();
+
   const token = user?.token;
-  const hospitalId = user?.hospitalId || user?.userId;
 
-  // ---- Metric cards ----
-  const [stats, setStats] = useState(null);
-  const [loadingStats, setLoadingStats] = useState(true);
+  const hospitalId =
+    user?.hospitalId ||
+    user?.userId ||
+    user?._id ||
+    user?.id;
+
+  // ========================================
+  // SIDEBAR
+  // ========================================
+
+  const [activeTab, setActiveTab] =
+    useState("dashboard");
+
+  // ========================================
+  // DASHBOARD STATS
+  // ========================================
+
+  const [stats, setStats] =
+    useState(null);
+
+  const [
+    loadingStats,
+    setLoadingStats
+  ] = useState(true);
+
+  // ========================================
+  // TRANSPLANT CASES
+  // ========================================
+
+  const [
+    transplantCases,
+    setTransplantCases
+  ] = useState([]);
+
+  const [
+    loadingCases,
+    setLoadingCases
+  ] = useState(true);
+
+  const [
+    casesError,
+    setCasesError
+  ] = useState(null);
+
+  const [
+    allocationIds,
+    setAllocationIds
+  ] = useState({});
+
+  const [
+    allocatingId,
+    setAllocatingId
+  ] = useState(null);
+
+  // ========================================
+  // OPERATIONS
+  // ========================================
+
+  const [
+    operations,
+    setOperations
+  ] = useState([]);
+
+  const [
+    loadingOperations,
+    setLoadingOperations
+  ] = useState(true);
+
+  const [
+    operationsError,
+    setOperationsError
+  ] = useState(null);
+
+  // ========================================
+  // SCHEDULE MODAL
+  // ========================================
+
+  const [
+    schedulingCase,
+    setSchedulingCase
+  ] = useState(null);
+
+  const [
+    scheduleDate,
+    setScheduleDate
+  ] = useState("");
+
+  const [
+    scheduleTime,
+    setScheduleTime
+  ] = useState("");
+
+  const [
+    surgeon,
+    setSurgeon
+  ] = useState("");
+
+  const [
+    scheduling,
+    setScheduling
+  ] = useState(false);
+
+  const [
+    scheduleError,
+    setScheduleError
+  ] = useState(null);
+
+  // ========================================
+  // LOAD STATS
+  // ========================================
+
+  const loadStats =
+    useCallback(async () => {
+      if (!hospitalId) {
+        setLoadingStats(false);
+        return;
+      }
+
+      setLoadingStats(true);
+
+      try {
+        const data =
+          await authFetch(
+            `/hospitals/${hospitalId}/stats`,
+            {
+              token
+            }
+          );
+
+        setStats(data);
+      } catch (error) {
+        console.error(
+          "Hospital stats error:",
+          error
+        );
+
+        setStats(null);
+      } finally {
+        setLoadingStats(false);
+      }
+    }, [hospitalId, token]);
+
+  // ========================================
+  // LOAD TRANSPLANT CASES
+  // ========================================
+
+  const loadTransplantCases =
+    useCallback(async () => {
+      setLoadingCases(true);
+      setCasesError(null);
+
+      try {
+        const data =
+          await authFetch(
+            "/hospital/requests/accepted",
+            {
+              token
+            }
+          );
+
+        const cases =
+          Array.isArray(data)
+            ? data
+            : [];
+
+        setTransplantCases(cases);
+
+        const allocationMap = {};
+
+        cases.forEach(
+          (item) => {
+            if (
+              item.allocationId
+            ) {
+              allocationMap[
+                item.id
+              ] =
+                item.allocationId;
+            }
+          }
+        );
+
+        setAllocationIds(
+          (previous) => ({
+            ...previous,
+            ...allocationMap
+          })
+        );
+      } catch (error) {
+        console.error(
+          "Failed to load transplant cases:",
+          error
+        );
+
+        setCasesError(
+          error.message ||
+            "Unable to load donor-approved transplant cases."
+        );
+      } finally {
+        setLoadingCases(false);
+      }
+    }, [token]);
+
+  // ========================================
+  // LOAD OPERATIONS
+  // ========================================
+
+  const loadOperations =
+    useCallback(async () => {
+      if (!hospitalId) {
+        setLoadingOperations(
+          false
+        );
+        return;
+      }
+
+      setLoadingOperations(true);
+      setOperationsError(null);
+
+      try {
+        const data =
+          await authFetch(
+            `/hospitals/${hospitalId}/operations`,
+            {
+              token
+            }
+          );
+
+        setOperations(
+          Array.isArray(data)
+            ? data
+            : []
+        );
+      } catch (error) {
+        console.error(
+          "Operations error:",
+          error
+        );
+
+        setOperationsError(
+          error.message ||
+            "Unable to load scheduled operations."
+        );
+      } finally {
+        setLoadingOperations(
+          false
+        );
+      }
+    }, [hospitalId, token]);
+
+  // ========================================
+  // INITIAL LOAD
+  // ========================================
 
   useEffect(() => {
-    if (!hospitalId) {
-      setLoadingStats(false);
-      return;
-    }
-    authFetch(`/hospitals/${hospitalId}/stats`, { token })
-      .then((data) => setStats(data))
-      .catch((err) => {
-        console.error("Failed to load hospital stats:", err);
-        // Leave stats null — cards below fall back to a "—" placeholder,
-        // rather than showing invented numbers.
-      })
-      .finally(() => setLoadingStats(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hospitalId]);
+    loadStats();
+    loadTransplantCases();
+    loadOperations();
+  }, [
+    loadStats,
+    loadTransplantCases,
+    loadOperations
+  ]);
 
-  // ---- AI Match ----
-  const [organ, setOrgan] = useState("");
-  const [bloodGroup, setBloodGroup] = useState("");
-  const [runningAI, setRunningAI] = useState(false);
-  const [matches, setMatches] = useState(null);
-  const [matchError, setMatchError] = useState(null);
-  const [donorOrganId, setDonorOrganId] = useState(null);
+  // ========================================
+  // INITIATE ALLOCATION
+  // ========================================
 
-  const handleRunAIMatch = async () => {
-    if (!organ || !bloodGroup) {
-      alert("Please select an organ and blood group to match against.");
-      return;
-    }
-    setRunningAI(true);
-    setMatches(null);
-    setMatchError(null);
-    try {
-      const data = await authFetch("/match/hospital", {
-        method: "POST",
-        token,
-        body: { organ, bloodGroup, hospitalId },
+  const initiateAllocation =
+    async (request) => {
+      if (!hospitalId) {
+        alert(
+          "Hospital ID is missing. Please login again."
+        );
+        return;
+      }
+
+      try {
+        setAllocatingId(
+          request.id
+        );
+
+        const data =
+          await authFetch(
+            "/allocations",
+            {
+              method: "POST",
+              token,
+
+              body: {
+                requestId:
+                  request.id,
+
+                hospitalId
+              }
+            }
+          );
+
+        const allocationId =
+          data?.allocation?._id ||
+          data?.allocation?.id ||
+          data?._id ||
+          data?.id;
+
+        if (!allocationId) {
+          throw new Error(
+            "Allocation was created but allocation ID was not returned."
+          );
+        }
+
+        setAllocationIds(
+          (previous) => ({
+            ...previous,
+
+            [request.id]:
+              allocationId
+          })
+        );
+
+        setTransplantCases(
+          (previous) =>
+            previous.map(
+              (item) =>
+                item.id ===
+                request.id
+                  ? {
+                      ...item,
+
+                      status:
+                        "Hospital Review",
+
+                      allocationId
+                    }
+                  : item
+            )
+        );
+
+        setSchedulingCase({
+          ...request,
+
+          status:
+            "Hospital Review",
+
+          allocationId
+        });
+
+        await loadStats();
+      } catch (error) {
+        console.error(
+          "Allocation failed:",
+          error
+        );
+
+        alert(
+          error.message ||
+            "Could not initiate hospital allocation."
+        );
+      } finally {
+        setAllocatingId(null);
+      }
+    };
+
+  // ========================================
+  // OPEN SCHEDULE MODAL
+  // ========================================
+
+  const openScheduleModal =
+    (request) => {
+      const allocationId =
+        request.allocationId ||
+        allocationIds[
+          request.id
+        ];
+
+      if (!allocationId) {
+        alert(
+          "Allocation ID is missing. Initiate allocation first."
+        );
+
+        return;
+      }
+
+      setSchedulingCase({
+        ...request,
+        allocationId
       });
-      setMatches(Array.isArray(data?.matches) ? data.matches : []);
-      setDonorOrganId(data?.donorOrganId || null);
-    } catch (err) {
-      console.error("AI match failed:", err);
-      setMatchError("Unable to run compatibility scoring right now. Please try again shortly.");
-    } finally {
-      setRunningAI(false);
-    }
-  };
 
-  // ---- Allocation ----
-  const [allocatingId, setAllocatingId] = useState(null);
-  const [allocatedIds, setAllocatedIds] = useState(new Set());
+      setScheduleDate("");
+      setScheduleTime("");
+      setSurgeon("");
+      setScheduleError(null);
+    };
 
-  const initiateAllocation = async (recipientId) => {
-    setAllocatingId(recipientId);
-    try {
-      await authFetch("/allocations", {
-        method: "POST",
-        token,
-        body: { donorOrganId, recipientId },
-      });
-      setAllocatedIds((prev) => new Set(prev).add(recipientId));
-    } catch (err) {
-      console.error("Allocation failed:", err);
-      alert("Could not initiate allocation right now. Please try again or contact the network coordinator.");
-    } finally {
-      setAllocatingId(null);
-    }
-  };
+  // ========================================
+  // SCHEDULE TRANSPLANT
+  // ========================================
 
-  // ---- Scheduled operations ----
-  const [operations, setOperations] = useState([]);
-  const [loadingOps, setLoadingOps] = useState(true);
-  const [opsError, setOpsError] = useState(null);
+  const scheduleTransplant =
+    async () => {
+      if (!schedulingCase) {
+        return;
+      }
 
-  useEffect(() => {
-    if (!hospitalId) {
-      setLoadingOps(false);
-      return;
-    }
-    authFetch(`/hospitals/${hospitalId}/operations`, { token })
-      .then((data) => setOperations(Array.isArray(data) ? data : []))
-      .catch((err) => {
-        console.error("Failed to load operations:", err);
-        setOpsError("Unable to load the operations schedule right now.");
-      })
-      .finally(() => setLoadingOps(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hospitalId]);
+      if (
+        !scheduleDate ||
+        !scheduleTime
+      ) {
+        setScheduleError(
+          "Please select both date and time."
+        );
 
-  return (
-    <div style={styles.page}>
-      <header style={styles.topbar}>
-        <div style={styles.brand}>
-          <div style={styles.logoBadge}>🏥</div>
+        return;
+      }
+
+      const allocationId =
+        schedulingCase
+          .allocationId ||
+        allocationIds[
+          schedulingCase.id
+        ];
+
+      if (!allocationId) {
+        setScheduleError(
+          "Allocation ID is missing."
+        );
+
+        return;
+      }
+
+      try {
+        setScheduling(true);
+        setScheduleError(null);
+
+        await authFetch(
+          "/appointments",
+          {
+            method: "POST",
+            token,
+
+            body: {
+              allocationId,
+              date:
+                scheduleDate,
+              time:
+                scheduleTime,
+
+              surgeon:
+                surgeon ||
+                "To Be Assigned"
+            }
+          }
+        );
+
+        setTransplantCases(
+          (previous) =>
+            previous.map(
+              (item) =>
+                item.id ===
+                schedulingCase.id
+                  ? {
+                      ...item,
+
+                      status:
+                        "Scheduled",
+
+                      allocationId
+                    }
+                  : item
+            )
+        );
+
+        setSchedulingCase(null);
+
+        setScheduleDate("");
+        setScheduleTime("");
+        setSurgeon("");
+
+        await Promise.all([
+          loadOperations(),
+          loadStats(),
+          loadTransplantCases()
+        ]);
+
+        alert(
+          "Transplant appointment scheduled successfully."
+        );
+      } catch (error) {
+        console.error(
+          "Scheduling failed:",
+          error
+        );
+
+        setScheduleError(
+          error.message ||
+            "Unable to schedule transplant."
+        );
+      } finally {
+        setScheduling(false);
+      }
+    };
+
+  // ========================================
+  // STATUS CLASS
+  // ========================================
+
+  const getStatusClass =
+    (status) => {
+      switch (status) {
+        case "Accepted":
+          return "hospital-badge-accepted";
+
+        case "Hospital Review":
+          return "hospital-badge-review";
+
+        case "Scheduled":
+          return "hospital-badge-scheduled";
+
+        case "Completed":
+          return "hospital-badge-completed";
+
+        default:
+          return "hospital-badge-pending";
+      }
+    };
+
+  // ========================================
+  // METRICS
+  // ========================================
+
+  const awaitingHospital =
+    transplantCases.filter(
+      (item) =>
+        item.status ===
+        "Accepted"
+    ).length;
+
+  const scheduledCount =
+    transplantCases.filter(
+      (item) =>
+        item.status ===
+        "Scheduled"
+    ).length;
+
+  // ========================================
+  // CASES TABLE
+  // ========================================
+
+  const renderCases = (
+    compact = false
+  ) => {
+    const visibleCases =
+      compact
+        ? transplantCases.slice(
+            0,
+            4
+          )
+        : transplantCases;
+
+    return (
+      <section className="hospital-panel">
+        <div className="hospital-panel-header">
           <div>
-            <h2 style={styles.brandTitle}>OrganSync Medical Center</h2>
-            <span style={styles.brandSub}>Certified Transplant Unit</span>
+            <h2 className="hospital-panel-title">
+              🫀 Donor-Approved
+              Transplant Cases
+            </h2>
+
+            {!compact && (
+              <p className="hospital-panel-description">
+                Review accepted
+                donor-recipient matches
+                and move them through
+                allocation and scheduling.
+              </p>
+            )}
+          </div>
+
+          <div className="hospital-header-actions">
+            <span className="hospital-purple-pill">
+              {awaitingHospital} Pending
+            </span>
+
+            <button
+              className="hospital-refresh-btn"
+              onClick={
+                loadTransplantCases
+              }
+            >
+              ↻ Refresh
+            </button>
           </div>
         </div>
 
-        <div style={styles.userSection}>
-          <div style={{ textAlign: "right" }}>
-            <span style={styles.userName}>{user?.fullName || "Partner Hospital"}</span>
-            <span style={styles.userBadge}>Verified Partner Hospital</span>
+        {casesError && (
+          <div className="hospital-error-box">
+            ⚠️ {casesError}
           </div>
-          <button onClick={logout} style={styles.logoutBtn}>
-            Logout ↪
+        )}
+
+        {loadingCases ? (
+          <p className="hospital-muted">
+            Loading transplant cases...
+          </p>
+        ) : visibleCases.length ===
+          0 ? (
+          <EmptyState
+            icon="🏥"
+            title="No donor-approved cases"
+            text="Cases appear here after a donor accepts a recipient request."
+          />
+        ) : (
+          <div className="hospital-table-wrapper">
+            <table className="hospital-table">
+              <thead>
+                <tr>
+                  <th>
+                    Recipient
+                  </th>
+
+                  <th>
+                    Donor
+                  </th>
+
+                  <th>
+                    Organ
+                  </th>
+
+                  <th>
+                    Blood Group
+                  </th>
+
+                  <th>
+                    Status
+                  </th>
+
+                  {!compact && (
+                    <th>
+                      Action
+                    </th>
+                  )}
+                </tr>
+              </thead>
+
+              <tbody>
+                {visibleCases.map(
+                  (request) => {
+                    const allocationId =
+                      request.allocationId ||
+                      allocationIds[
+                        request.id
+                      ];
+
+                    return (
+                      <tr
+                        key={
+                          request.id
+                        }
+                      >
+                        <td className="hospital-td-bold">
+                          {request.recipientName ||
+                            "Recipient"}
+                        </td>
+
+                        <td>
+                          {request.donorName ||
+                            "Donor"}
+                        </td>
+
+                        <td>
+                          {
+                            request.organ
+                          }
+                        </td>
+
+                        <td>
+                          {
+                            request.bloodGroup
+                          }
+                        </td>
+
+                        <td>
+                          <span
+                            className={getStatusClass(
+                              request.status
+                            )}
+                          >
+                            {
+                              request.status
+                            }
+                          </span>
+                        </td>
+
+                        {!compact && (
+                          <td>
+                            {request.status ===
+                              "Accepted" && (
+                              <button
+                                className="hospital-allocate-btn"
+                                disabled={
+                                  allocatingId ===
+                                  request.id
+                                }
+                                onClick={() =>
+                                  initiateAllocation(
+                                    request
+                                  )
+                                }
+                              >
+                                {allocatingId ===
+                                request.id
+                                  ? "Allocating..."
+                                  : "Initiate Allocation"}
+                              </button>
+                            )}
+
+                            {request.status ===
+                              "Hospital Review" && (
+                              <button
+                                className="hospital-schedule-btn"
+                                onClick={() =>
+                                  openScheduleModal({
+                                    ...request,
+                                    allocationId
+                                  })
+                                }
+                              >
+                                📅 Schedule
+                              </button>
+                            )}
+
+                            {request.status ===
+                              "Scheduled" && (
+                              <span className="hospital-done-text">
+                                ✓ Appointment Scheduled
+                              </span>
+                            )}
+
+                            {request.status ===
+                              "Completed" && (
+                              <span className="hospital-done-text">
+                                ✓ Completed
+                              </span>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  }
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {compact &&
+          transplantCases.length >
+            4 && (
+            <button
+              className="hospital-link-btn"
+              onClick={() =>
+                setActiveTab(
+                  "cases"
+                )
+              }
+            >
+              View all cases →
+            </button>
+          )}
+      </section>
+    );
+  };
+
+  // ========================================
+  // OPERATIONS
+  // ========================================
+
+  const renderOperations = (
+    compact = false
+  ) => {
+    const visibleOperations =
+      compact
+        ? operations.slice(
+            0,
+            4
+          )
+        : operations;
+
+    return (
+      <section className="hospital-panel">
+        <div className="hospital-panel-header">
+          <div>
+            <h2 className="hospital-panel-title">
+              🏥 Scheduled Hospital
+              Operations
+            </h2>
+
+            {!compact && (
+              <p className="hospital-panel-description">
+                Transplant team
+                assignments, surgeons,
+                schedules and
+                operating-room readiness.
+              </p>
+            )}
+          </div>
+
+          <button
+            className="hospital-refresh-btn"
+            onClick={
+              loadOperations
+            }
+          >
+            ↻ Refresh
           </button>
         </div>
-      </header>
 
-      <main style={styles.container}>
-        <div style={styles.grid4}>
-          <div style={styles.metricCard}>
-            <span style={styles.metricLabel}>Active Donor Organs</span>
-            <h3 style={{ ...styles.metricVal, color: "#2563eb" }}>
-              {loadingStats ? "…" : stats?.activeDonorOrgans != null ? `${stats.activeDonorOrgans} Available` : "—"}
-            </h3>
-            <small style={styles.metricSub}>Preserved in Cold Storage</small>
+        {operationsError && (
+          <div className="hospital-error-box">
+            ⚠️ {operationsError}
+          </div>
+        )}
+
+        {loadingOperations ? (
+          <p className="hospital-muted">
+            Loading scheduled
+            operations...
+          </p>
+        ) : visibleOperations.length ===
+          0 ? (
+          <EmptyState
+            icon="📅"
+            title="No Operations Scheduled"
+            text="Schedule a donor-approved transplant case first."
+          />
+        ) : (
+          <div className="hospital-table-wrapper">
+            <table className="hospital-table">
+              <thead>
+                <tr>
+                  <th>
+                    Patient
+                  </th>
+
+                  <th>
+                    Organ
+                  </th>
+
+                  <th>
+                    Surgeon
+                  </th>
+
+                  <th>
+                    Scheduled Time
+                  </th>
+
+                  <th>
+                    Status
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {visibleOperations.map(
+                  (operation) => (
+                    <tr
+                      key={
+                        operation.id ||
+                        operation._id
+                      }
+                    >
+                      <td className="hospital-td-bold">
+                        {operation.patient ||
+                          "Patient"}
+                      </td>
+
+                      <td>
+                        {operation.organ}
+                      </td>
+
+                      <td>
+                        {operation.surgeon ||
+                          "To Be Assigned"}
+                      </td>
+
+                      <td>
+                        {operation.scheduledTime ||
+                          "—"}
+                      </td>
+
+                      <td>
+                        <span
+                          className={
+                            operation.status ===
+                            "OR Ready"
+                              ? "hospital-badge-completed"
+                              : "hospital-badge-review"
+                          }
+                        >
+                          {operation.status ||
+                            "Scheduled"}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {compact &&
+          operations.length > 4 && (
+            <button
+              className="hospital-link-btn"
+              onClick={() =>
+                setActiveTab(
+                  "operations"
+                )
+              }
+            >
+              View all operations →
+            </button>
+          )}
+      </section>
+    );
+  };
+
+  // ========================================
+  // APPOINTMENTS TAB
+  // ========================================
+
+  const renderAppointments =
+    () => (
+      <section className="hospital-panel">
+        <div className="hospital-page-heading">
+          <h1>
+            Appointments
+          </h1>
+
+          <p>
+            Schedule approved transplant
+            cases and manage upcoming
+            hospital procedures.
+          </p>
+        </div>
+
+        <div className="hospital-appointment-summary">
+          <div className="hospital-appointment-icon">
+            📅
           </div>
 
-          <div style={styles.metricCard}>
-            <span style={styles.metricLabel}>Urgent Waitlist</span>
-            <h3 style={{ ...styles.metricVal, color: "#ea580c" }}>
-              {loadingStats ? "…" : stats?.urgentWaitlist != null ? `${stats.urgentWaitlist} Critical` : "—"}
+          <div>
+            <h3>
+              {scheduledCount} Scheduled
+              Transplant
+              {scheduledCount === 1
+                ? ""
+                : "s"}
             </h3>
-            <small style={styles.metricSub}>Tier 1 Candidates</small>
-          </div>
 
-          <div style={styles.metricCard}>
-            <span style={styles.metricLabel}>Transplants This Month</span>
-            <h3 style={{ ...styles.metricVal, color: "#16a34a" }}>
-              {loadingStats ? "…" : stats?.transplantsThisMonth != null ? `${stats.transplantsThisMonth} Completed` : "—"}
-            </h3>
-            <small style={styles.metricSub}>
-              {stats?.successRate != null ? `${stats.successRate}% Success Rate` : ""}
-            </small>
-          </div>
+            <p>
+              To schedule a new
+              transplant, open
+              Transplant Cases and
+              initiate allocation for
+              an accepted case.
+            </p>
 
-          <div style={styles.metricCard}>
-            <span style={styles.metricLabel}>Avg Allocation Time</span>
-            <h3 style={styles.metricVal}>
-              {loadingStats ? "…" : stats?.avgAllocationMinutes != null ? `${stats.avgAllocationMinutes} Mins` : "—"}
-            </h3>
-            <small style={styles.metricSub}>Neural Engine Optimized</small>
+            <button
+              className="hospital-primary-btn"
+              onClick={() =>
+                setActiveTab(
+                  "cases"
+                )
+              }
+            >
+              Open Transplant Cases
+            </button>
           </div>
         </div>
 
-        <div style={styles.card}>
-          <div style={styles.cardHeader}>
-            <div>
-              <h2 style={styles.cardTitle}>⚡ AI Organ Allocation & Compatibility Scoring</h2>
-              <p style={styles.cardDesc}>Multi-parameter matching (ABO, HLA, Distance & Clinical Urgency).</p>
-            </div>
+        <div className="hospital-section-spacing">
+          {renderOperations(false)}
+        </div>
+      </section>
+    );
+
+  // ========================================
+  // DASHBOARD
+  // ========================================
+
+  const renderDashboard =
+    () => (
+      <>
+        <section className="hospital-welcome-banner">
+          <div>
+            <span className="hospital-welcome-label">
+              VERIFIED TRANSPLANT UNIT
+            </span>
+
+            <h1>
+              Welcome,{" "}
+              {user?.fullName ||
+                "Partner Hospital"}
+            </h1>
+
+            <p>
+              Manage donor-approved
+              transplant cases,
+              allocations and surgical
+              schedules through
+              OrganSync.
+            </p>
           </div>
 
-          <div style={styles.searchRow}>
-            <div style={styles.inputCol}>
-              <label style={styles.label}>Donor Organ</label>
-              <select value={organ} onChange={(e) => setOrgan(e.target.value)} style={styles.select}>
-                <option value="">Select Organ</option>
-                {ORGANS.map((o) => (
-                  <option key={o} value={o}>{o}</option>
-                ))}
-              </select>
+          <div className="hospital-verified-card">
+            <span className="hospital-verified-icon">
+              🏥
+            </span>
+
+            <div>
+              <small>
+                Hospital ID
+              </small>
+
+              <strong>
+                #
+                {hospitalId
+                  ? String(
+                      hospitalId
+                    )
+                      .slice(-6)
+                      .toUpperCase()
+                  : "N/A"}
+              </strong>
             </div>
-            <div style={styles.inputCol}>
-              <label style={styles.label}>Blood Group</label>
-              <select value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)} style={styles.select}>
-                <option value="">Select Blood Group</option>
-                {BLOOD_GROUPS.map((bg) => (
-                  <option key={bg} value={bg}>{bg}</option>
-                ))}
-              </select>
+          </div>
+        </section>
+
+        <div className="hospital-metrics-grid">
+          <MetricCard
+            label="Active Donor Organs"
+            loading={
+              loadingStats
+            }
+            value={
+              stats?.activeDonorOrgans !=
+              null
+                ? `${stats.activeDonorOrgans} Available`
+                : "—"
+            }
+            sub="Available donor pledges"
+            variant="primary"
+          />
+
+          <MetricCard
+            label="Urgent Waitlist"
+            loading={
+              loadingStats
+            }
+            value={
+              stats?.urgentWaitlist !=
+              null
+                ? `${stats.urgentWaitlist} Critical`
+                : "—"
+            }
+            sub="Active transplant candidates"
+            variant="warning"
+          />
+
+          <MetricCard
+            label="Transplants This Month"
+            loading={
+              loadingStats
+            }
+            value={
+              stats?.transplantsThisMonth !=
+              null
+                ? `${stats.transplantsThisMonth} Completed`
+                : "—"
+            }
+            sub={
+              stats?.successRate !=
+              null
+                ? `${stats.successRate}% Success Rate`
+                : "Completed procedures"
+            }
+            variant="success"
+          />
+
+          <MetricCard
+            label="Cases Awaiting Hospital"
+            loading={
+              loadingCases
+            }
+            value={`${awaitingHospital} Pending`}
+            sub="Donor-approved cases"
+            variant="purple"
+          />
+        </div>
+
+        {renderCases(true)}
+
+        <div className="hospital-section-spacing">
+          {renderOperations(true)}
+        </div>
+      </>
+    );
+
+  // ========================================
+  // MAIN
+  // ========================================
+
+  return (
+    <div className="hospital-layout">
+      <PortalSidebar
+        portal="hospital"
+        activeTab={
+          activeTab
+        }
+        setActiveTab={
+          setActiveTab
+        }
+        logout={logout}
+      />
+
+      <main className="hospital-main">
+        {activeTab ===
+          "dashboard" &&
+          renderDashboard()}
+
+        {activeTab ===
+          "cases" &&
+          renderCases(false)}
+
+        {activeTab ===
+          "operations" &&
+          renderOperations(false)}
+
+        {activeTab ===
+          "appointments" &&
+          renderAppointments()}
+      </main>
+
+      {/* ====================================
+          SCHEDULE MODAL
+      ==================================== */}
+
+      {schedulingCase && (
+        <div
+          className="hospital-modal-overlay"
+          onClick={() =>
+            !scheduling &&
+            setSchedulingCase(null)
+          }
+        >
+          <div
+            className="hospital-modal"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+            <h2 className="hospital-modal-title">
+              Schedule Transplant
+            </h2>
+
+            <p className="hospital-modal-description">
+              Confirm the hospital
+              schedule for this
+              donor-approved transplant.
+            </p>
+
+            <div className="hospital-case-summary">
+              <SummaryItem
+                label="Recipient"
+                value={
+                  schedulingCase.recipientName ||
+                  "Recipient"
+                }
+              />
+
+              <SummaryItem
+                label="Donor"
+                value={
+                  schedulingCase.donorName ||
+                  "Donor"
+                }
+              />
+
+              <SummaryItem
+                label="Organ"
+                value={
+                  schedulingCase.organ
+                }
+              />
+
+              <SummaryItem
+                label="Blood Group"
+                value={
+                  schedulingCase.bloodGroup
+                }
+              />
             </div>
-            <div style={{ alignSelf: "flex-end" }}>
-              <button onClick={handleRunAIMatch} disabled={runningAI} style={styles.aiBtn}>
-                {runningAI ? "Computing Compatibility Matrix..." : "⚡ Execute AI Match"}
+
+            <label className="hospital-label">
+              Transplant Date
+            </label>
+
+            <input
+              type="date"
+              className="hospital-input"
+              value={
+                scheduleDate
+              }
+              min={
+                new Date()
+                  .toISOString()
+                  .split("T")[0]
+              }
+              onChange={(event) =>
+                setScheduleDate(
+                  event.target.value
+                )
+              }
+            />
+
+            <label className="hospital-label">
+              Time
+            </label>
+
+            <input
+              type="time"
+              className="hospital-input"
+              value={
+                scheduleTime
+              }
+              onChange={(event) =>
+                setScheduleTime(
+                  event.target.value
+                )
+              }
+            />
+
+            <label className="hospital-label">
+              Surgeon
+            </label>
+
+            <input
+              type="text"
+              className="hospital-input"
+              value={surgeon}
+              placeholder="e.g. Dr. Sharma"
+              onChange={(event) =>
+                setSurgeon(
+                  event.target.value
+                )
+              }
+            />
+
+            {scheduleError && (
+              <div className="hospital-error-box">
+                ⚠️ {scheduleError}
+              </div>
+            )}
+
+            <div className="hospital-modal-actions">
+              <button
+                className="hospital-secondary-btn"
+                disabled={
+                  scheduling
+                }
+                onClick={() =>
+                  setSchedulingCase(
+                    null
+                  )
+                }
+              >
+                Cancel
+              </button>
+
+              <button
+                className="hospital-primary-btn"
+                disabled={
+                  scheduling
+                }
+                onClick={
+                  scheduleTransplant
+                }
+              >
+                {scheduling
+                  ? "Scheduling..."
+                  : "Confirm Schedule"}
               </button>
             </div>
           </div>
-
-          {matchError && (
-            <div style={styles.errorBox}>
-              <span style={{ fontSize: "18px" }}>⚠️</span>
-              <span>{matchError}</span>
-            </div>
-          )}
-
-          {matches && matches.length === 0 && !matchError && (
-            <div style={{ ...styles.resultBanner, background: "#fef3c7", border: "1px solid #fde68a", color: "#92400e" }}>
-              <span>No compatible recipients found for this organ and blood group right now.</span>
-            </div>
-          )}
-
-          {matches && matches.length > 0 && (
-            <div style={{ marginTop: "24px" }}>
-              <div style={styles.resultBanner}>
-                <span>✅ AI Matching Generated <strong>{matches.length} Compatible Recipients</strong> for {organ} ({bloodGroup})</span>
-              </div>
-
-              <table style={styles.table}>
-                <thead>
-                  <tr style={styles.thRow}>
-                    <th style={styles.th}>Recipient ID</th>
-                    <th style={styles.th}>Patient Name</th>
-                    <th style={styles.th}>Blood Group</th>
-                    <th style={styles.th}>Compatibility</th>
-                    <th style={styles.th}>Urgency</th>
-                    <th style={styles.th}>Distance</th>
-                    <th style={styles.th}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {matches.map((item) => {
-                    const isAllocated = allocatedIds.has(item.id);
-                    return (
-                      <tr key={item.id} style={styles.tr}>
-                        <td style={styles.tdBold}>{item.id}</td>
-                        <td style={styles.td}>{item.name}</td>
-                        <td style={styles.td}>{item.blood}</td>
-                        <td style={styles.td}>
-                          <span style={styles.scorePill}>{item.score}</span>
-                        </td>
-                        <td style={styles.td}>
-                          <span style={item.urgency === "Tier 1" ? styles.badgeCrit : styles.badgeWarn}>{item.urgency}</span>
-                        </td>
-                        <td style={styles.td}>{item.distance}</td>
-                        <td style={styles.td}>
-                          <button
-                            style={{ ...styles.approveBtn, ...(isAllocated ? styles.approveBtnDone : {}) }}
-                            onClick={() => initiateAllocation(item.id)}
-                            disabled={allocatingId === item.id || isAllocated}
-                          >
-                            {isAllocated
-                              ? "✓ Allocated"
-                              : allocatingId === item.id
-                                ? "Allocating..."
-                                : "Initiate Allocation"}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
-
-        <div style={{ ...styles.card, marginTop: "28px" }}>
-          <h3 style={styles.cardTitle}>🏥 Scheduled Hospital Operations</h3>
-          <p style={styles.cardDesc}>Transplant team assignments and operating room readiness.</p>
-
-          {loadingOps ? (
-            <p style={{ color: "#64748b" }}>Loading schedule...</p>
-          ) : opsError ? (
-            <div style={styles.errorBox}>
-              <span style={{ fontSize: "18px" }}>⚠️</span>
-              <span>{opsError}</span>
-            </div>
-          ) : operations.length === 0 ? (
-            <p style={{ color: "#64748b" }}>No operations scheduled.</p>
-          ) : (
-            <table style={styles.table}>
-              <thead>
-                <tr style={styles.thRow}>
-                  <th style={styles.th}>Patient</th>
-                  <th style={styles.th}>Organ Type</th>
-                  <th style={styles.th}>Surgeon</th>
-                  <th style={styles.th}>Scheduled Time</th>
-                  <th style={styles.th}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {operations.map((op) => (
-                  <tr key={op.id} style={styles.tr}>
-                    <td style={styles.tdBold}>{op.patient}</td>
-                    <td style={styles.td}>{op.organ}</td>
-                    <td style={styles.td}>{op.surgeon}</td>
-                    <td style={styles.td}>{op.scheduledTime}</td>
-                    <td style={styles.td}>
-                      <span style={op.status === "OR Ready" ? styles.badgeSuccess : styles.badgeWarn}>{op.status}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </main>
+      )}
     </div>
   );
 }
 
-const styles = {
-  page: { minHeight: "100vh", background: "#f8fafc", fontFamily: "system-ui, sans-serif", color: "#0f172a" },
-  topbar: { display: "flex", justifyContent: "space-between", alignItems: "center", background: "#ffffff", padding: "16px 36px", borderBottom: "1px solid #e2e8f0" },
-  brand: { display: "flex", alignItems: "center", gap: "12px" },
-  logoBadge: { background: "#eff6ff", padding: "8px 12px", borderRadius: "10px", fontSize: "20px" },
-  brandTitle: { fontSize: "18px", fontWeight: "800", color: "#1e3a8a", margin: 0 },
-  brandSub: { fontSize: "11px", color: "#64748b" },
-  userSection: { display: "flex", alignItems: "center", gap: "18px" },
-  userName: { fontWeight: "700", fontSize: "14px", display: "block" },
-  userBadge: { fontSize: "12px", color: "#2563eb", fontWeight: "600" },
-  logoutBtn: { background: "#fee2e2", color: "#dc2626", border: "none", padding: "8px 16px", borderRadius: "8px", fontWeight: "700", cursor: "pointer", fontSize: "13px" },
-  container: { maxWidth: "1200px", margin: "0 auto", padding: "32px 24px" },
-  grid4: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px", marginBottom: "28px" },
-  metricCard: { background: "#ffffff", border: "1px solid #e2e8f0", padding: "20px", borderRadius: "14px" },
-  metricLabel: { fontSize: "12px", color: "#64748b", fontWeight: "700", textTransform: "uppercase" },
-  metricVal: { fontSize: "22px", fontWeight: "800", margin: "6px 0 2px" },
-  metricSub: { fontSize: "12px", color: "#94a3b8" },
-  card: { background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "16px", padding: "28px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" },
-  cardHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" },
-  cardTitle: { fontSize: "18px", fontWeight: "800", color: "#1e293b", margin: "0 0 4px" },
-  cardDesc: { fontSize: "14px", color: "#64748b", margin: 0 },
-  searchRow: { display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "20px", marginBottom: "8px" },
-  inputCol: { display: "flex", flexDirection: "column", gap: "6px", flex: 1, minWidth: "200px" },
-  label: { fontSize: "13px", fontWeight: "700", color: "#334155" },
-  select: { padding: "10px 14px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", background: "#f8fafc" },
-  aiBtn: { background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", color: "#ffffff", border: "none", padding: "12px 24px", borderRadius: "8px", fontWeight: "700", cursor: "pointer", fontSize: "14px", boxShadow: "0 4px 12px rgba(37,99,235,0.2)", height: "42px" },
-  errorBox: { background: "#fef2f2", border: "1px solid #fca5a5", color: "#991b1b", padding: "14px 18px", borderRadius: "10px", marginTop: "16px", display: "flex", alignItems: "center", gap: "10px", fontSize: "14px" },
-  resultBanner: { background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#166534", padding: "12px 18px", borderRadius: "10px", marginBottom: "16px", fontSize: "14px" },
-  table: { width: "100%", borderCollapse: "collapse", textAlign: "left" },
-  thRow: { borderBottom: "2px solid #f1f5f9" },
-  th: { padding: "12px 14px", fontSize: "13px", color: "#64748b", fontWeight: "700" },
-  tr: { borderBottom: "1px solid #f8fafc" },
-  td: { padding: "14px", fontSize: "14px", color: "#334155" },
-  tdBold: { padding: "14px", fontSize: "14px", fontWeight: "700", color: "#1e293b" },
-  scorePill: { background: "#eff6ff", color: "#2563eb", fontWeight: "800", padding: "4px 10px", borderRadius: "20px", fontSize: "13px" },
-  badgeCrit: { background: "#fee2e2", color: "#dc2626", padding: "4px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "700" },
-  badgeWarn: { background: "#fef3c7", color: "#d97706", padding: "4px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "700" },
-  badgeSuccess: { background: "#dcfce7", color: "#16a34a", padding: "4px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "700" },
-  approveBtn: { background: "#16a34a", color: "#ffffff", border: "none", padding: "8px 14px", borderRadius: "6px", fontWeight: "700", cursor: "pointer", fontSize: "12px" },
-  approveBtnDone: { background: "#94a3b8", cursor: "default" },
-};
+// ========================================
+// HELPER COMPONENTS
+// ========================================
+
+function MetricCard({
+  label,
+  loading,
+  value,
+  sub,
+  variant = ""
+}) {
+  return (
+    <div className="hospital-metric-card">
+      <span className="hospital-metric-label">
+        {label}
+      </span>
+
+      <h3
+        className={`hospital-metric-value ${
+          variant
+            ? `hospital-metric-${variant}`
+            : ""
+        }`}
+      >
+        {loading
+          ? "…"
+          : value}
+      </h3>
+
+      <small className="hospital-metric-sub">
+        {sub}
+      </small>
+    </div>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  text
+}) {
+  return (
+    <div className="hospital-empty-state">
+      <span className="hospital-empty-icon">
+        {icon}
+      </span>
+
+      <h3>
+        {title}
+      </h3>
+
+      <p>
+        {text}
+      </p>
+    </div>
+  );
+}
+
+function SummaryItem({
+  label,
+  value
+}) {
+  return (
+    <div className="hospital-summary-item">
+      <small>
+        {label}
+      </small>
+
+      <strong>
+        {value || "—"}
+      </strong>
+    </div>
+  );
+}

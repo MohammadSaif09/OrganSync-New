@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import "./RegisterPage.css";
 
 export default function RegisterPage() {
   const { register, setCurrentPage } = useAuth();
+
   const [role, setRole] = useState("donor");
+
   const [formData, setFormData] = useState({
     fullName: "",
     phone: "",
@@ -19,245 +22,407 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
-      [name]: type === "checkbox" ? checked : value,
-    });
+    const {
+      name,
+      value,
+      type,
+      checked
+    } = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]:
+        type === "checkbox"
+          ? checked
+          : value
+    }));
+  };
+
+  const handleRoleChange = (newRole) => {
+    setRole(newRole);
+
+    setFormData((prev) => ({
+      ...prev,
+      role: newRole
+    }));
+
+    setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match!");
+    if (
+      formData.password !==
+      formData.confirmPassword
+    ) {
+      setError(
+        "Passwords do not match."
+      );
+      return;
+    }
+
+    if (!formData.consent) {
+      setError(
+        "Please accept the consent agreement."
+      );
       return;
     }
 
     setLoading(true);
+
     try {
-      await register({ role, ...formData });
+      await register({
+        ...formData,
+        role
+      });
     } catch (err) {
-      setError(err.message || "Something went wrong!");
+      setError(
+        err.message ||
+          "Registration failed. Please try again."
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <h2 style={styles.title}>Create Your Account</h2>
-        <p style={styles.subtitle}>Register as a Donor, Recipient, or Hospital</p>
+  const organLabel =
+    role === "recipient"
+      ? "Organ Needed"
+      : role === "donor"
+      ? "Organ to Pledge"
+      : "Transplant Specialization";
 
-        <div style={styles.tabGroup}>
-          {["donor", "recipient", "hospital"].map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRole(r)}
-              style={{
-                ...styles.tabBtn,
-                ...(role === r ? styles.activeTab : {}),
-              }}
-            >
-              {r.charAt(0).toUpperCase() + r.slice(1)}
-            </button>
-          ))}
+  return (
+    <div
+      className="register-page"
+      style={{
+        backgroundImage: `url(${process.env.PUBLIC_URL}/images/organsync-login-bg.jpg)`
+      }}
+    >
+      <div className="register-overlay" />
+
+      <div className="register-card">
+        <div className="register-icon-circle">
+          ✚
         </div>
 
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.row}>
-            <input
-              type="text"
-              name="fullName"
-              placeholder={role === "hospital" ? "Hospital Name" : "Full Name"}
-              value={formData.fullName}
-              onChange={handleChange}
-              required
-              style={styles.input}
-            />
-            <input
-              type="tel"
-              name="phone"
-              placeholder="Phone Number"
-              value={formData.phone}
-              onChange={handleChange}
-              required
-              style={styles.input}
-            />
+        <h1 className="register-title">
+          Join OrganSync
+        </h1>
+
+        <p className="register-subtitle">
+          Create your secure transplant coordination account
+        </p>
+
+        <div className="register-role-tabs">
+          <button
+            type="button"
+            className={
+              role === "donor"
+                ? "register-role-btn active"
+                : "register-role-btn"
+            }
+            onClick={() =>
+              handleRoleChange("donor")
+            }
+          >
+            <span>🫀</span>
+            Donor
+          </button>
+
+          <button
+            type="button"
+            className={
+              role === "recipient"
+                ? "register-role-btn active"
+                : "register-role-btn"
+            }
+            onClick={() =>
+              handleRoleChange("recipient")
+            }
+          >
+            <span>🤝</span>
+            Recipient
+          </button>
+
+          <button
+            type="button"
+            className={
+              role === "hospital"
+                ? "register-role-btn active"
+                : "register-role-btn"
+            }
+            onClick={() =>
+              handleRoleChange("hospital")
+            }
+          >
+            <span>🏥</span>
+            Hospital
+          </button>
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          autoComplete="on"
+        >
+          <div className="register-grid">
+            <div className="register-field">
+              <label htmlFor="fullName">
+                Full Name
+              </label>
+
+              <div className="register-input-box">
+                <span className="register-input-icon">
+                  👤
+                </span>
+
+                <input
+                  id="fullName"
+                  name="fullName"
+                  type="text"
+                  value={formData.fullName}
+                  onChange={handleChange}
+                  placeholder={
+                    role === "hospital"
+                      ? "Hospital / Center Name"
+                      : "Enter your full name"
+                  }
+                  autoComplete="name"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="register-field">
+              <label htmlFor="phone">
+                Phone Number
+              </label>
+
+              <div className="register-input-box">
+                <span className="register-input-icon">
+                  ☎
+                </span>
+
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="+91 98765 43210"
+                  autoComplete="tel"
+                  required
+                />
+              </div>
+            </div>
           </div>
 
-          <input
-            type="email"
-            name="email"
-            placeholder="Email Address"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            style={styles.input}
-          />
+          <div className="register-field">
+            <label htmlFor="email">
+              Email Address
+            </label>
 
-          <div style={styles.row}>
-            <input
-              type="password"
-              name="password"
-              placeholder="Password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              style={styles.input}
-            />
-            <input
-              type="password"
-              name="confirmPassword"
-              placeholder="Confirm Password"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              style={styles.input}
-            />
+            <div className="register-input-box">
+              <span className="register-input-icon">
+                ✉
+              </span>
+
+              <input
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="name@example.com"
+                autoComplete="email"
+                required
+              />
+            </div>
           </div>
 
-          {/* Conditional Rendering: Show Blood Group & Organ options only for Donor / Recipient */}
+          <div className="register-grid">
+            <div className="register-field">
+              <label htmlFor="password">
+                Password
+              </label>
+
+              <div className="register-input-box">
+                <span className="register-input-icon">
+                  🔒
+                </span>
+
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="Create password"
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="register-field">
+              <label htmlFor="confirmPassword">
+                Confirm Password
+              </label>
+
+              <div className="register-input-box">
+                <span className="register-input-icon">
+                  ✓
+                </span>
+
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  value={
+                    formData.confirmPassword
+                  }
+                  onChange={handleChange}
+                  placeholder="Confirm password"
+                  autoComplete="new-password"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
           {role !== "hospital" && (
-            <div style={styles.row}>
-              <select
-                name="bloodGroup"
-                value={formData.bloodGroup}
-                onChange={handleChange}
-                required
-                style={styles.input}
-              >
-                <option value="">Blood Group</option>
-                {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((bg) => (
-                  <option key={bg} value={bg}>{bg}</option>
-                ))}
-              </select>
+            <div className="register-grid">
+              <div className="register-field">
+                <label htmlFor="bloodGroup">
+                  Blood Group
+                </label>
 
-              <select
-                name="organ"
-                value={formData.organ}
-                onChange={handleChange}
-                required
-                style={styles.input}
-              >
-                <option value="">Organ Option</option>
-                {["Kidney", "Liver", "Heart", "Lungs", "Pancreas", "Cornea"].map((o) => (
-                  <option key={o} value={o}>{o}</option>
-                ))}
-              </select>
+                <select
+                  id="bloodGroup"
+                  name="bloodGroup"
+                  value={formData.bloodGroup}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">
+                    Select blood group
+                  </option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                </select>
+              </div>
+
+              <div className="register-field">
+                <label htmlFor="organ">
+                  {organLabel}
+                </label>
+
+                <select
+                  id="organ"
+                  name="organ"
+                  value={formData.organ}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">
+                    Select organ
+                  </option>
+                  <option value="Kidney">
+                    Kidney
+                  </option>
+                  <option value="Liver">
+                    Liver
+                  </option>
+                  <option value="Heart">
+                    Heart
+                  </option>
+                  <option value="Lungs">
+                    Lungs
+                  </option>
+                  <option value="Pancreas">
+                    Pancreas
+                  </option>
+                  <option value="Cornea">
+                    Cornea
+                  </option>
+                </select>
+              </div>
             </div>
           )}
 
-          <label style={styles.checkboxLabel}>
+          {role === "hospital" && (
+            <div className="register-hospital-note">
+              <span>🏥</span>
+
+              <div>
+                <strong>
+                  Hospital Registration
+                </strong>
+
+                <p>
+                  Your hospital account can be verified
+                  by the OrganSync administrator before
+                  accessing transplant operations.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <label className="register-consent">
             <input
               type="checkbox"
               name="consent"
               checked={formData.consent}
               onChange={handleChange}
-              required
             />
-            I agree to share relevant information for matching & processing.
+
+            <span>
+              I consent to securely share relevant
+              information for transplant matching and
+              processing.
+            </span>
           </label>
 
-          {error && <div style={styles.error}>{error}</div>}
+          {error && (
+            <div className="register-error">
+              ⚠️ {error}
+            </div>
+          )}
 
-          <button type="submit" disabled={loading} style={styles.button}>
-            {loading ? "Registering..." : "Create Account"}
+          <button
+            type="submit"
+            className="register-submit-btn"
+            disabled={loading}
+          >
+            {loading
+              ? "Creating Account..."
+              : "Create Account →"}
           </button>
         </form>
 
-        <p style={styles.footerText}>
-          Already have an account?{" "}
-          <button onClick={() => setCurrentPage("login")} style={styles.linkBtn}>
+        <div className="register-footer">
+          <span>
+            Already have an account?
+          </span>
+
+          <button
+            type="button"
+            onClick={() =>
+              setCurrentPage("login")
+            }
+          >
             Sign In
           </button>
-        </p>
+        </div>
       </div>
     </div>
   );
 }
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "#f4f6f8",
-    fontFamily: "system-ui, sans-serif",
-    padding: "20px",
-  },
-  card: {
-    width: "100%",
-    maxWidth: 480,
-    background: "#ffffff",
-    borderRadius: 12,
-    padding: "32px",
-    boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
-  },
-  title: { fontSize: 22, fontWeight: 700, margin: 0, color: "#111827", textAlign: "center" },
-  subtitle: { fontSize: 13, color: "#6b7280", marginTop: 4, marginBottom: 20, textAlign: "center" },
-  tabGroup: { display: "flex", background: "#f3f4f6", padding: 4, borderRadius: 8, gap: 4, marginBottom: 16 },
-  tabBtn: {
-    flex: 1,
-    padding: "8px",
-    border: "none",
-    background: "transparent",
-    borderRadius: 6,
-    fontSize: 14,
-    fontWeight: 500,
-    color: "#4b5563",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  activeTab: {
-    background: "#ffffff",
-    color: "#111827",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-  },
-  form: { display: "flex", flexDirection: "column", gap: 12 },
-  row: { display: "flex", gap: 12 },
-  input: {
-    flex: 1,
-    padding: "10px 12px",
-    borderRadius: 6,
-    border: "1px solid #d1d5db",
-    fontSize: 14,
-    outline: "none",
-    width: "100%",
-    boxSizing: "border-box",
-  },
-  checkboxLabel: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    fontSize: 13,
-    color: "#4b5563",
-    margin: "4px 0",
-    cursor: "pointer",
-  },
-  error: {
-    color: "#ef4444",
-    fontSize: 13,
-    textAlign: "center",
-    background: "#fef2f2",
-    padding: "8px",
-    borderRadius: 6,
-  },
-  button: {
-    padding: "12px",
-    borderRadius: 6,
-    border: "none",
-    background: "#2563eb",
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: "pointer",
-    marginTop: 8,
-  },
-  footerText: { fontSize: 13, color: "#6b7280", textAlign: "center", marginTop: 20 },
-  linkBtn: { border: "none", background: "none", color: "#2563eb", fontWeight: 600, cursor: "pointer", padding: 0 },
-};

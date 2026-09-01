@@ -1,37 +1,59 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-// A record created whenever a hospital clicks "Initiate Allocation"
-// on the AI match results table.
 const allocationSchema = new mongoose.Schema({
-
-  hospitalId: {
+  requestId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: "OrganRequest",
     required: true
   },
 
-  donorOrganId: {
-    type: String,
+  donorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
     required: true
   },
 
   recipientId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: "User",
+    required: true
+  },
+
+  pledgeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Pledge",
+    required: true
+  },
+
+  hospitalId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true
+  },
+
+  organ: {
+    type: String,
     required: true
   },
 
   status: {
     type: String,
-    enum: ['initiated', 'completed', 'cancelled'],
-    default: 'initiated'
+    enum: [
+      "Hospital Review",
+      "Scheduled",
+      "Completed",
+      "Cancelled"
+    ],
+    default: "Hospital Review"
   },
 
   createdAt: {
     type: Date,
     default: Date.now
   }
-
 });
 
-export default mongoose.model('Allocation', allocationSchema);
+export default mongoose.model(
+  "Allocation",
+  allocationSchema
+);

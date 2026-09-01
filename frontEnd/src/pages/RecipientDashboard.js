@@ -1431,7 +1431,7 @@ function Appointments({
 }) {
   const path =
     userId
-      ? `/users/${userId}/appointments`
+      ? `/appointments/user/${userId}`
       : "";
 
   const {
