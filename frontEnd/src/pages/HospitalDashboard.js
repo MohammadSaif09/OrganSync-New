@@ -69,6 +69,17 @@ export default function HospitalDashboard() {
     setAllocatingId
   ] = useState(null);
 
+
+  //======================================
+  //Verification of hospital
+  //======================================
+
+const [medicalRecords, setMedicalRecords] = useState([]);
+const [medicalLoading, setMedicalLoading] = useState(false);
+const [medicalError, setMedicalError] = useState("");
+const [verifyingId, setVerifyingId] = useState(null);
+const [analyzingId, setAnalyzingId] = useState(null);
+
   // ========================================
   // OPERATIONS
   // ========================================
@@ -786,6 +797,860 @@ export default function HospitalDashboard() {
       </section>
     );
   };
+  //==================================
+  // VERIFICATION TAB
+  //==================================
+
+  // LOAD PENDING MEDICAL RECORDS
+
+  const loadPendingMedicalRecords = async () => {
+  try {
+    setMedicalLoading(true);
+    setMedicalError("");
+
+    const data = await authFetch(
+      "/medical-records/hospital/pending",
+      {
+        token
+      }
+    );
+
+    setMedicalRecords(
+      Array.isArray(data)
+        ? data
+        : []
+    );
+
+  } catch (error) {
+    console.error(
+      "Load Medical Verification Queue Error:",
+      error
+    );
+
+    setMedicalError(
+      error.message ||
+      "Unable to load medical records."
+    );
+
+  } finally {
+    setMedicalLoading(false);
+  }
+};
+
+// LOAD WHEN VERIFICATION TAB OPENS
+  useEffect(() => {
+  if (
+    activeTab === "verification"
+  ) {
+    loadPendingMedicalRecords();
+  }
+}, [activeTab]);
+
+const handleMedicalVerification =
+  async (
+    recordId,
+    status
+  ) => {
+    try {
+      setVerifyingId(recordId);
+      setMedicalError("");
+
+      await authFetch(
+        `/medical-records/${recordId}/verify`,
+        {
+          method: "PATCH",
+          token,
+          body: {
+            status,
+            verifierId:
+              hospitalId
+          }
+        }
+      );
+
+      await loadPendingMedicalRecords();
+
+    } catch (error) {
+      console.error(
+        "Medical Verification Error:",
+        error
+      );
+
+      setMedicalError(
+        error.message ||
+        "Unable to update medical record."
+      );
+
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+  // ==========================================
+// ANALYZE MEDICAL RECORD
+// ==========================================
+
+const handleAnalyzeMedicalRecord =
+  async (recordId) => {
+
+    try {
+
+      setAnalyzingId(recordId);
+      setMedicalError("");
+
+      await authFetch(
+        `/medical-records/${recordId}/analyze`,
+        {
+          method: "POST",
+          token
+        }
+      );
+
+      // Reload queue so extracted values
+      // immediately appear on screen
+      await loadPendingMedicalRecords();
+
+    } catch (error) {
+
+      console.error(
+        "Medical Record Analysis Error:",
+        error
+      );
+
+      setMedicalError(
+        error.message ||
+        "Unable to analyze medical record."
+      );
+
+    } finally {
+
+      setAnalyzingId(null);
+
+    }
+  };
+
+const handleViewMedicalRecord =
+  (recordId) => {
+    window.open(
+      `http://localhost:8080/api/medical-records/file/${recordId}`,
+      "_blank"
+    );
+  };
+// ==========================================
+// RENDER MEDICAL VERIFICATION TAB
+// ==========================================
+
+const renderMedicalVerification = () => {
+  if (activeTab !== "verification") {
+    return null;
+  }
+
+  return (
+    <div className="mv-page">
+
+      {/* HEADER */}
+      <div className="mv-page-header">
+
+        <div>
+          <div className="mv-eyebrow">
+            CLINICAL REVIEW
+          </div>
+
+          <h1>
+            Medical Verification
+          </h1>
+
+          <p>
+            Review recipient medical documents,
+            validate extracted clinical data and
+            approve records for compatibility matching.
+          </p>
+        </div>
+
+
+        <div className="mv-header-stat">
+
+          <div className="mv-header-stat-icon">
+            ✓
+          </div>
+
+          <div>
+            <strong>
+              {medicalRecords.length}
+            </strong>
+
+            <span>
+              Pending Reviews
+            </span>
+          </div>
+
+        </div>
+
+      </div>
+
+
+      {/* INFO BANNER */}
+      <div className="mv-info-banner">
+
+        <div className="mv-info-icon">
+          i
+        </div>
+
+        <div>
+          <strong>
+            Hospital verification required
+          </strong>
+
+          <p>
+            Only verified medical information
+            should be used by the OrganSync
+            compatibility engine.
+          </p>
+        </div>
+
+      </div>
+
+
+      {/* ERROR */}
+      {medicalError && (
+        <div className="mv-error">
+          {medicalError}
+        </div>
+      )}
+
+
+      {/* LOADING */}
+      {medicalLoading ? (
+
+        <div className="mv-state-card">
+
+          <div className="mv-loader" />
+
+          <h3>
+            Loading medical records
+          </h3>
+
+          <p>
+            Retrieving documents waiting
+            for clinical review...
+          </p>
+
+        </div>
+
+      ) : medicalRecords.length === 0 ? (
+
+        /* EMPTY STATE */
+
+        <div className="mv-state-card">
+
+          <div className="mv-empty-icon">
+            ✓
+          </div>
+
+          <h3>
+            You're all caught up
+          </h3>
+
+          <p>
+            No medical documents are currently
+            waiting for verification.
+          </p>
+
+        </div>
+
+      ) : (
+
+        /* RECORDS */
+
+        <div className="mv-record-list">
+
+          {medicalRecords.map((record) => {
+
+            const extracted =
+              record.extractedData || {};
+
+            const isExtracted =
+              record.extractionStatus === "Extracted";
+
+            const patientName =
+              record.patient?.fullName ||
+              "Unknown Patient";
+
+            const initials =
+              patientName
+                .split(" ")
+                .filter(Boolean)
+                .map((word) =>
+                  word.charAt(0)
+                )
+                .join("")
+                .substring(0, 2)
+                .toUpperCase();
+
+
+            return (
+              <div
+                key={record.id}
+                className="mv-record-card"
+              >
+
+                {/* ===================================== */}
+                {/* PATIENT HEADER */}
+                {/* ===================================== */}
+
+                <div className="mv-card-header">
+
+                  <div className="mv-patient-main">
+
+                    <div className="mv-avatar">
+                      {initials}
+                    </div>
+
+
+                    <div>
+
+                      <div className="mv-patient-name-row">
+
+                        <h2>
+                          {patientName}
+                        </h2>
+
+
+                        <span
+                          className={
+                            isExtracted
+                              ? "mv-status mv-status-success"
+                              : "mv-status mv-status-warning"
+                          }
+                        >
+
+                          <span className="mv-status-dot" />
+
+                          {record.extractionStatus}
+
+                        </span>
+
+                      </div>
+
+
+                      <div className="mv-patient-meta">
+
+                        <span>
+                          {
+                            record.patient?.email ||
+                            "-"
+                          }
+                        </span>
+
+                        <span className="mv-dot">
+                          •
+                        </span>
+
+                        <span>
+                          {
+                            record.patient?.phone ||
+                            "-"
+                          }
+                        </span>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+
+                  {/* DOCUMENT TYPE */}
+
+                  <div className="mv-document-badge">
+
+                    <span className="mv-document-icon">
+                      ▤
+                    </span>
+
+                    <div>
+
+                      <small>
+                        DOCUMENT
+                      </small>
+
+                      <strong>
+                        {record.documentType}
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+
+                {/* ===================================== */}
+                {/* BODY */}
+                {/* ===================================== */}
+
+                <div className="mv-card-body">
+
+
+                  {/* LEFT CONTENT */}
+
+                  <div className="mv-main-column">
+
+
+                    {/* ================================ */}
+                    {/* RECIPIENT DETAILS */}
+                    {/* ================================ */}
+
+                    <div className="mv-section">
+
+                      <div className="mv-section-header">
+
+                        <div>
+
+                          <span className="mv-section-number">
+                            01
+                          </span>
+
+                          <h3>
+                            Recipient Details
+                          </h3>
+
+                        </div>
+
+                      </div>
+
+
+                      <div className="mv-info-grid">
+
+
+                        <div className="mv-info-item">
+
+                          <span>
+                            Organ Required
+                          </span>
+
+                          <strong>
+                            {
+                              record.patient?.organ ||
+                              "Not specified"
+                            }
+                          </strong>
+
+                        </div>
+
+
+                        <div className="mv-info-item">
+
+                          <span>
+                            Registered Blood Group
+                          </span>
+
+                          <strong className="mv-blood-value">
+                            {
+                              record.patient?.bloodGroup ||
+                              "-"
+                            }
+                          </strong>
+
+                        </div>
+
+
+                        <div className="mv-info-item">
+
+                          <span>
+                            Laboratory
+                          </span>
+
+                          <strong>
+                            {
+                              record.laboratory ||
+                              "-"
+                            }
+                          </strong>
+
+                        </div>
+
+
+                        <div className="mv-info-item">
+
+                          <span>
+                            Report Date
+                          </span>
+
+                          <strong>
+                            {
+                              record.reportDate
+                                ? new Date(
+                                    record.reportDate
+                                  ).toLocaleDateString(
+                                    "en-IN"
+                                  )
+                                : "-"
+                            }
+                          </strong>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+
+                    {/* ================================ */}
+                    {/* EXTRACTED DATA */}
+                    {/* ================================ */}
+
+                    <div className="mv-section">
+
+                      <div className="mv-section-header">
+
+                        <div>
+
+                          <span className="mv-section-number">
+                            02
+                          </span>
+
+                          <h3>
+                            Extracted Clinical Data
+                          </h3>
+
+                        </div>
+
+
+                        <span
+                          className={
+                            isExtracted
+                              ? "mv-ai-badge success"
+                              : "mv-ai-badge pending"
+                          }
+                        >
+                          {
+                            isExtracted
+                              ? "Extraction Complete"
+                              : "Awaiting Analysis"
+                          }
+                        </span>
+
+                      </div>
+
+
+                      <div className="mv-clinical-grid">
+
+
+                        {/* BLOOD */}
+
+                        <div className="mv-clinical-card">
+
+                          <div className="mv-clinical-icon">
+                            🩸
+                          </div>
+
+                          <div>
+
+                            <span>
+                              Blood Group
+                            </span>
+
+                            <strong>
+                              {
+                                extracted.bloodGroup ||
+                                "Not detected"
+                              }
+                            </strong>
+
+                          </div>
+
+                        </div>
+
+
+                        {/* HEIGHT */}
+
+                        <div className="mv-clinical-card">
+
+                          <div className="mv-clinical-icon">
+                            ↕
+                          </div>
+
+                          <div>
+
+                            <span>
+                              Height
+                            </span>
+
+                            <strong>
+                              {
+                                extracted.heightCm
+                                  ? `${extracted.heightCm} cm`
+                                  : "Not available"
+                              }
+                            </strong>
+
+                          </div>
+
+                        </div>
+
+
+                        {/* WEIGHT */}
+
+                        <div className="mv-clinical-card">
+
+                          <div className="mv-clinical-icon">
+                            ⚖
+                          </div>
+
+                          <div>
+
+                            <span>
+                              Weight
+                            </span>
+
+                            <strong>
+                              {
+                                extracted.weightKg
+                                  ? `${extracted.weightKg} kg`
+                                  : "Not available"
+                              }
+                            </strong>
+
+                          </div>
+
+                        </div>
+
+                      </div>
+
+
+                      {/* HLA */}
+
+                      <div className="mv-hla-box">
+
+                        <div className="mv-hla-title">
+                          HLA Typing
+                        </div>
+
+
+                        <div className="mv-hla-values">
+
+                          <span>
+                            HLA-A
+
+                            <strong>
+                              {
+                                extracted.hla?.hlaA?.length
+                                  ? extracted.hla.hlaA.join(", ")
+                                  : "—"
+                              }
+                            </strong>
+                          </span>
+
+
+                          <span>
+                            HLA-B
+
+                            <strong>
+                              {
+                                extracted.hla?.hlaB?.length
+                                  ? extracted.hla.hlaB.join(", ")
+                                  : "—"
+                              }
+                            </strong>
+                          </span>
+
+
+                          <span>
+                            HLA-DR
+
+                            <strong>
+                              {
+                                extracted.hla?.hlaDR?.length
+                                  ? extracted.hla.hlaDR.join(", ")
+                                  : "—"
+                              }
+                            </strong>
+                          </span>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+
+                  {/* ================================= */}
+                  {/* RIGHT REVIEW PANEL */}
+                  {/* ================================= */}
+
+                  <aside className="mv-review-panel">
+
+                    <div className="mv-review-title">
+                      Review Document
+                    </div>
+
+
+                    <div className="mv-file-card">
+
+                      <div className="mv-file-icon">
+                        PDF
+                      </div>
+
+
+                      <div className="mv-file-content">
+
+                        <strong>
+                          {record.fileName}
+                        </strong>
+
+                        <span>
+                          {record.documentType}
+                        </span>
+
+                      </div>
+
+                    </div>
+
+
+                    <button
+                      type="button"
+                      className="mv-view-btn"
+                      onClick={() =>
+                        handleViewMedicalRecord(
+                          record.id
+                        )
+                      }
+                    >
+                      View Original Report
+                    </button>
+
+
+                    <div className="mv-review-divider" />
+
+
+                    <div className="mv-review-check">
+
+                      <span>
+                        Verification status
+                      </span>
+
+                      <strong>
+                        Pending Review
+                      </strong>
+
+                    </div>
+
+
+                    {/* ANALYSIS WARNING */}
+
+                    {!isExtracted && (
+
+                      <div className="mv-warning-box">
+
+                        <strong>
+                          Analysis required
+                        </strong>
+
+                        <p>
+                          This document must be
+                          analyzed before it can
+                          be verified.
+                        </p>
+
+                      </div>
+
+                    )}
+
+
+                    {/* ====================================== */}
+{/* ACTIONS */}
+{/* ====================================== */}
+
+<div className="mv-review-actions">
+
+  {/* REJECT */}
+  <button
+    type="button"
+    className="mv-reject-btn"
+    disabled={
+      verifyingId === record.id ||
+      analyzingId === record.id
+    }
+    onClick={() =>
+      handleMedicalVerification(
+        record.id,
+        "Rejected"
+      )
+    }
+  >
+    ✕ Reject
+  </button>
+
+
+  {/* ====================================== */}
+  {/* NOT PROCESSED → SHOW ANALYZE */}
+  {/* EXTRACTED → SHOW VERIFY */}
+  {/* ====================================== */}
+
+  {!isExtracted ? (
+
+    <button
+      type="button"
+      className="mv-analyze-btn"
+      disabled={
+        analyzingId === record.id
+      }
+      onClick={() =>
+        handleAnalyzeMedicalRecord(
+          record.id
+        )
+      }
+    >
+      {
+        analyzingId === record.id
+          ? "Analyzing..."
+          : "Analyze Document"
+      }
+    </button>
+
+  ) : (
+
+    <button
+      type="button"
+      className="mv-verify-btn"
+      disabled={
+        verifyingId === record.id ||
+        analyzingId === record.id
+      }
+      onClick={() =>
+        handleMedicalVerification(
+          record.id,
+          "Verified"
+        )
+      }
+    >
+      {
+        verifyingId === record.id
+          ? "Processing..."
+          : "✓ Verify Record"
+      }
+    </button>
+
+  )}
+
+</div>
+
+                  </aside>
+
+                </div>
+
+              </div>
+            );
+          })}
+
+        </div>
+      )}
+
+    </div>
+  );
+};
 
   // ========================================
   // OPERATIONS
@@ -1142,22 +2007,28 @@ export default function HospitalDashboard() {
       />
 
       <main className="hospital-main">
-        {activeTab ===
-          "dashboard" &&
-          renderDashboard()}
 
-        {activeTab ===
-          "cases" &&
-          renderCases(false)}
+  {activeTab === "dashboard" &&
+    renderDashboard()
+  }
 
-        {activeTab ===
-          "operations" &&
-          renderOperations(false)}
+  {activeTab === "cases" &&
+    renderCases(false)
+  }
 
-        {activeTab ===
-          "appointments" &&
-          renderAppointments()}
-      </main>
+  {activeTab === "verification" &&
+    renderMedicalVerification()
+  }
+
+  {activeTab === "operations" &&
+    renderOperations(false)
+  }
+
+  {activeTab === "appointments" &&
+    renderAppointments()
+  }
+
+</main>
 
       {/* ====================================
           SCHEDULE MODAL

@@ -73,7 +73,7 @@ export default function LoginPage() {
           className="back-home-link"
           onClick={() =>
             setCurrentPage("home")
-          } 
+          }
         >
           ← Back to Home
         </button> */}

@@ -51,6 +51,11 @@ export default function PortalSidebar({
           icon: "🫀"
         },
         {
+          id: "verification",
+          label: "Medical Verification",
+          icon: "⚕️"
+        },
+        {
           id: "operations",
           label: "Operations",
           icon: "🏥"

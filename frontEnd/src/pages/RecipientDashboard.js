@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { authFetch } from "../config/api";
+import MedicalRecordsPage from "./MedicalRecordsPage";
 
 const BLOOD_GROUPS = [
   "A+",
@@ -334,14 +335,9 @@ export default function RecipientDashboard() {
 
     // ---------------- RECORDS ----------------
 
-    if (activeTab === "records") {
-      return (
-        <MedicalRecords
-          userId={recipientId}
-          token={token}
-        />
-      );
-    }
+   if (activeTab === "records") {
+  return <MedicalRecordsPage />;
+}
 
     // =====================================================
     // DASHBOARD
@@ -1540,113 +1536,113 @@ function Appointments({
 // MEDICAL RECORDS
 // =====================================================
 
-function MedicalRecords({
-  userId,
-  token
-}) {
-  const path =
-    userId
-      ? `/users/${userId}/records`
-      : "";
+// function MedicalRecords({
+//   userId,
+//   token
+// }) {
+//   const path =
+//     userId
+//       ? `/users/${userId}/records`
+//       : "";
 
-  const {
-    items,
-    loading,
-    error
-  } = useFetchedList(
-    path,
-    token,
-    userId
-  );
+//   const {
+//     items,
+//     loading,
+//     error
+//   } = useFetchedList(
+//     path,
+//     token,
+//     userId
+//   );
 
-  return (
-    <div style={styles.card}>
-      <h2 style={styles.cardTitle}>
-        Medical Records
-      </h2>
+//   return (
+//     <div style={styles.card}>
+//       <h2 style={styles.cardTitle}>
+//         Medical Records
+//       </h2>
 
-      <p style={styles.cardSubtitle}>
-        Medical records linked to your
-        transplant account.
-      </p>
+//       <p style={styles.cardSubtitle}>
+//         Medical records linked to your
+//         transplant account.
+//       </p>
 
-      {loading ? (
-        <p>
-          Loading records...
-        </p>
+//       {loading ? (
+//         <p>
+//           Loading records...
+//         </p>
 
-      ) : error ? (
-        <div style={styles.errorBox}>
-          ⚠️ {error}
-        </div>
+//       ) : error ? (
+//         <div style={styles.errorBox}>
+//           ⚠️ {error}
+//         </div>
 
-      ) : items.length === 0 ? (
-        <div style={styles.emptyState}>
-          <span
-            style={{
-              fontSize: "32px"
-            }}
-          >
-            📄
-          </span>
+//       ) : items.length === 0 ? (
+//         <div style={styles.emptyState}>
+//           <span
+//             style={{
+//               fontSize: "32px"
+//             }}
+//           >
+//             📄
+//           </span>
 
-          <h3>
-            No Medical Records
-          </h3>
+//           <h3>
+//             No Medical Records
+//           </h3>
 
-          <p>
-            Your medical records will
-            appear here.
-          </p>
-        </div>
+//           <p>
+//             Your medical records will
+//             appear here.
+//           </p>
+//         </div>
 
-      ) : (
-        <div style={styles.requestList}>
-          {items.map((record) => (
-            <div
-              key={record.id}
-              style={
-                styles.requestRow
-              }
-            >
-              <div>
-                <strong>
-                  {record.title ||
-                    "Record"}
-                </strong>
+//       ) : (
+//         <div style={styles.requestList}>
+//           {items.map((record) => (
+//             <div
+//               key={record.id}
+//               style={
+//                 styles.requestRow
+//               }
+//             >
+//               <div>
+//                 <strong>
+//                   {record.title ||
+//                     "Record"}
+//                 </strong>
 
-                <span
-                  style={{
-                    display: "block",
-                    fontSize: "12px",
-                    color: "#64748b"
-                  }}
-                >
-                  {record.date}
-                </span>
-              </div>
+//                 <span
+//                   style={{
+//                     display: "block",
+//                     fontSize: "12px",
+//                     color: "#64748b"
+//                   }}
+//                 >
+//                   {record.date}
+//                 </span>
+//               </div>
 
-              {record.url && (
-                <a
-                  href={record.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    fontSize: "12px",
-                    color: "#2563eb",
-                    fontWeight: 700
-                  }}
-                >
-                  View
-                </a>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+//               {record.url && (
+//                 <a
+//                   href={record.url}
+//                   target="_blank"
+//                   rel="noreferrer"
+//                   style={{
+//                     fontSize: "12px",
+//                     color: "#2563eb",
+//                     fontWeight: 700
+//                   }}
+//                 >
+//                   View
+//                 </a>
+//               )}
+//             </div>
+//           ))}
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
 
 // =====================================================
 // STYLES
