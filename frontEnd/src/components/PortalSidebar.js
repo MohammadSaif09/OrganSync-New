@@ -56,6 +56,11 @@ export default function PortalSidebar({
           icon: "⚕️"
         },
         {
+         id: "screening",
+         label: "Compatibility Screening",
+         icon: "🧬"
+      },
+        {
           id: "operations",
           label: "Operations",
           icon: "🏥"
@@ -82,6 +87,11 @@ export default function PortalSidebar({
           id: "profile",
           label: "Profile",
           icon: "👤"
+        },
+        {
+          id: "matches",
+          label: "Potential Matches",
+          icon: "🧬"
         },
         {
           id: "requests",

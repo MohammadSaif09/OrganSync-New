@@ -767,3 +767,94 @@ export const recipientCompatibilityMatch =
       });
     }
   };
+
+  export const getScreeningRecipients = async (req, res) => {
+  try {
+
+    const verifiedRecords = await MedicalRecord.find({
+      verificationStatus: "Verified",
+      extractionStatus: "Extracted",
+      "extractedData.bloodGroup": { $ne: null }
+    })
+      .populate(
+        "user",
+        "fullName email phone bloodGroup organ role"
+      )
+      .sort({
+        verifiedAt: -1,
+        createdAt: -1
+      });
+
+    const recipientMap = new Map();
+
+    verifiedRecords.forEach((record) => {
+
+      const recipient = record.user;
+
+      if (!recipient) return;
+
+      if (recipient.role !== "recipient") {
+        return;
+      }
+
+      if (!recipient.organ) {
+        return;
+      }
+
+      const recipientId =
+        String(recipient._id);
+
+      if (!recipientMap.has(recipientId)) {
+
+        recipientMap.set(
+          recipientId,
+          {
+            id: recipient._id,
+            fullName: recipient.fullName,
+            email: recipient.email,
+            phone: recipient.phone,
+            organ: recipient.organ,
+
+            registeredBloodGroup:
+              recipient.bloodGroup || null,
+
+            verifiedBloodGroup:
+              record.extractedData?.bloodGroup ||
+              null,
+
+            verifiedRecordId:
+              record._id,
+
+            verifiedAt:
+              record.verifiedAt,
+
+            status:
+              "Ready for Screening"
+          }
+        );
+      }
+    });
+
+    const recipients =
+      Array.from(
+        recipientMap.values()
+      );
+
+    return res.status(200).json(
+      recipients
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Get Screening Recipients Error:",
+      error
+    );
+
+    return res.status(500).json({
+      message:
+        error.message ||
+        "Unable to load screening recipients."
+    });
+  }
+};

@@ -37,6 +37,566 @@ export default function RecipientDashboard() {
     useState("dashboard");
 
   // =====================================================
+// POTENTIAL MATCHES
+// =====================================================
+
+function PotentialMatches({
+  recommendations,
+  loading,
+  error,
+  message,
+  actionId,
+  onSendRequest,
+  onDecline,
+  onRefresh
+}) {
+
+  const activeRecommendations =
+    recommendations.filter(
+      (item) =>
+        item.status === "Recommended"
+    );
+
+  const pastRecommendations =
+    recommendations.filter(
+      (item) =>
+        item.status !== "Recommended"
+    );
+
+
+  if (loading) {
+    return (
+      <div style={styles.card}>
+        <h2 style={styles.cardTitle}>
+          Potential Matches
+        </h2>
+
+        <p style={styles.cardSubtitle}>
+          Loading hospital screening
+          recommendations...
+        </p>
+      </div>
+    );
+  }
+
+
+  return (
+    <div>
+
+      {/* HEADER */}
+
+      <div style={styles.matchesHeader}>
+
+        <div>
+          <span style={styles.matchesEyebrow}>
+            HOSPITAL SCREENING
+          </span>
+
+          <h1 style={styles.matchesHeading}>
+            Potential Matches
+          </h1>
+
+          <p style={styles.matchesSubtitle}>
+            Review donor matches recommended
+            after hospital-verified medical
+            screening.
+          </p>
+        </div>
+
+        <button
+          style={styles.viewBtn}
+          onClick={onRefresh}
+        >
+          ↻ Refresh
+        </button>
+
+      </div>
+
+
+      {/* SAFETY */}
+
+      <div style={styles.matchSafetyBanner}>
+        <strong>
+          Clinical screening support
+        </strong>
+
+        <p>
+          A potential match does not confirm
+          transplant eligibility. Final
+          compatibility and allocation require
+          hospital review.
+        </p>
+      </div>
+
+
+      {error && (
+        <div style={styles.errorBox}>
+          ⚠️ {error}
+        </div>
+      )}
+
+
+      {message && (
+        <div style={styles.successBox}>
+          ✅ {message}
+        </div>
+      )}
+
+
+      {/* ACTIVE MATCHES */}
+
+      {activeRecommendations.length === 0 ? (
+
+        <div style={styles.matchEmptyCard}>
+
+          <div style={styles.matchEmptyIcon}>
+            🧬
+          </div>
+
+          <h3>
+            No new potential matches
+          </h3>
+
+          <p>
+            Hospital recommendations will
+            appear here after compatibility
+            screening.
+          </p>
+
+        </div>
+
+      ) : (
+
+        <div style={styles.recommendationList}>
+
+          {activeRecommendations.map(
+            (item) => {
+
+              const busy =
+                actionId === item.id;
+
+              return (
+
+                <div
+                  key={item.id}
+                  style={
+                    styles.recommendationCard
+                  }
+                >
+
+                  {/* HEADER */}
+
+                  <div
+                    style={
+                      styles.recommendationTop
+                    }
+                  >
+
+                    <div>
+
+                      <span
+                        style={
+                          styles.recommendedBy
+                        }
+                      >
+                        RECOMMENDED BY
+                      </span>
+
+                      <strong
+                        style={
+                          styles.hospitalName
+                        }
+                      >
+                        🏥 {item.hospitalName}
+                      </strong>
+
+                    </div>
+
+
+                    <span
+                      style={
+                        styles.recommendationBadge
+                      }
+                    >
+                      New Match
+                    </span>
+
+                  </div>
+
+
+                  {/* DONOR */}
+
+                  <div
+                    style={
+                      styles.recommendationDonor
+                    }
+                  >
+
+                    <div
+                      style={
+                        styles.matchDonorAvatar
+                      }
+                    >
+                      {item.donorName
+                        ?.charAt(0)
+                        ?.toUpperCase() ||
+                        "D"}
+                    </div>
+
+
+                    <div>
+
+                      <small
+                        style={
+                          styles.matchSmallLabel
+                        }
+                      >
+                        POTENTIAL DONOR
+                      </small>
+
+                      <h2
+                        style={
+                          styles.matchDonorName
+                        }
+                      >
+                        {item.donorName}
+                      </h2>
+
+                      <div
+                        style={
+                          styles.matchTags
+                        }
+                      >
+
+                        <span
+                          style={
+                            styles.matchTag
+                          }
+                        >
+                          🫀 {item.organ}
+                        </span>
+
+                        <span
+                          style={
+                            styles.matchTag
+                          }
+                        >
+                          🩸{" "}
+                          {
+                            item.donorBloodGroup
+                          }
+                        </span>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+
+                  {/* COMPLETENESS */}
+
+                  <div
+                    style={
+                      styles.completenessBox
+                    }
+                  >
+
+                    <div
+                      style={
+                        styles.completenessHeader
+                      }
+                    >
+                      <span>
+                        Evidence Completeness
+                      </span>
+
+                      <strong>
+                        {item.dataCompleteness}%
+                      </strong>
+                    </div>
+
+                    <div
+                      style={
+                        styles.completenessTrack
+                      }
+                    >
+                      <div
+                        style={{
+                          ...styles.completenessFill,
+
+                          width:
+                            `${Math.min(
+                              Number(
+                                item.dataCompleteness
+                              ) || 0,
+                              100
+                            )}%`
+                        }}
+                      />
+                    </div>
+
+                    <small
+                      style={
+                        styles.completenessNote
+                      }
+                    >
+                      This represents available
+                      evidence, not a medical
+                      compatibility percentage.
+                    </small>
+
+                  </div>
+
+
+                  {/* FACTORS */}
+
+                  <div
+                    style={
+                      styles.matchEvidenceGrid
+                    }
+                  >
+
+                    <div>
+
+                      <h4
+                        style={
+                          styles.matchEvidenceTitle
+                        }
+                      >
+                        Screening Evidence
+                      </h4>
+
+                      {(item.factors || [])
+                        .map(
+                          (
+                            factor,
+                            index
+                          ) => (
+
+                          <div
+                            key={index}
+                            style={
+                              styles.evidenceRow
+                            }
+                          >
+                            <span
+                              style={
+                                styles.evidenceSuccess
+                              }
+                            >
+                              ✓
+                            </span>
+
+                            <span>
+                              {factor}
+                            </span>
+                          </div>
+
+                        ))}
+
+                    </div>
+
+
+                    <div>
+
+                      <h4
+                        style={
+                          styles.matchEvidenceTitle
+                        }
+                      >
+                        Additional Evidence
+                      </h4>
+
+                      {(item
+                        .missingEvidence ||
+                        []).length === 0 ? (
+
+                        <div
+                          style={
+                            styles.evidenceRow
+                          }
+                        >
+                          <span
+                            style={
+                              styles.evidenceSuccess
+                            }
+                          >
+                            ✓
+                          </span>
+
+                          <span>
+                            No tracked evidence
+                            currently missing.
+                          </span>
+                        </div>
+
+                      ) : (
+
+                        item
+                          .missingEvidence
+                          .map(
+                            (
+                              missing,
+                              index
+                            ) => (
+
+                            <div
+                              key={index}
+                              style={
+                                styles.evidenceRow
+                              }
+                            >
+                              <span
+                                style={
+                                  styles.evidenceWarning
+                                }
+                              >
+                                ○
+                              </span>
+
+                              <span>
+                                {missing}
+                              </span>
+                            </div>
+
+                          ))
+
+                      )}
+
+                    </div>
+
+                  </div>
+
+
+                  {/* ACTIONS */}
+
+                  <div
+                    style={
+                      styles.recommendationActions
+                    }
+                  >
+
+                    <button
+                      type="button"
+                      style={
+                        styles.declineMatchBtn
+                      }
+                      disabled={busy}
+                      onClick={() =>
+                        onDecline(item)
+                      }
+                    >
+                      Decline
+                    </button>
+
+
+                    <button
+                      type="button"
+                      style={
+                        styles.sendDonorBtn
+                      }
+                      disabled={busy}
+                      onClick={() =>
+                        onSendRequest(item)
+                      }
+                    >
+                      {busy
+                        ? "Processing..."
+                        : "Send Request to Donor"}
+                    </button>
+
+                  </div>
+
+                </div>
+
+              );
+            }
+          )}
+
+        </div>
+
+      )}
+
+
+      {/* HISTORY */}
+
+      {pastRecommendations.length > 0 && (
+
+        <div
+          style={{
+            ...styles.card,
+            marginTop: "24px"
+          }}
+        >
+
+          <h2 style={styles.cardTitle}>
+            Match History
+          </h2>
+
+          <p style={styles.cardSubtitle}>
+            Previous hospital recommendations.
+          </p>
+
+
+          <div style={styles.requestList}>
+
+            {pastRecommendations.map(
+              (item) => (
+
+                <div
+                  key={item.id}
+                  style={
+                    styles.requestRow
+                  }
+                >
+
+                  <div>
+
+                    <strong>
+                      {item.donorName}
+                    </strong>
+
+                    <span
+                      style={
+                        styles.historyMeta
+                      }
+                    >
+                      {item.organ}
+                      {" • "}
+                      {item.hospitalName}
+                    </span>
+
+                  </div>
+
+
+                  <span
+                    style={
+                      item.status ===
+                      "Request Sent"
+                        ? styles.badgeSuccess
+                        : styles.badgeRejected
+                    }
+                  >
+                    {item.status}
+                  </span>
+
+                </div>
+
+              )
+            )}
+
+          </div>
+
+        </div>
+
+      )}
+
+    </div>
+  );
+}
+
+  // =====================================================
   // PROFILE
   // =====================================================
 
@@ -83,6 +643,35 @@ export default function RecipientDashboard() {
     requestRefreshKey,
     setRequestRefreshKey
   ] = useState(0);
+
+  // =====================================================
+// HOSPITAL MATCH RECOMMENDATIONS
+// =====================================================
+
+const [
+  recommendations,
+  setRecommendations
+] = useState([]);
+
+const [
+  recommendationsLoading,
+  setRecommendationsLoading
+] = useState(false);
+
+const [
+  recommendationsError,
+  setRecommendationsError
+] = useState("");
+
+const [
+  recommendationActionId,
+  setRecommendationActionId
+] = useState(null);
+
+const [
+  recommendationMessage,
+  setRecommendationMessage
+] = useState("");
 
   // =====================================================
   // LOAD PROFILE
@@ -138,6 +727,67 @@ export default function RecipientDashboard() {
     loadProfile();
 
   }, [recipientId, token]);
+
+  // =====================================================
+// LOAD HOSPITAL RECOMMENDATIONS
+// =====================================================
+
+const loadRecommendations = async () => {
+
+  if (!recipientId) {
+    return;
+  }
+
+  try {
+
+    setRecommendationsLoading(true);
+    setRecommendationsError("");
+
+    const data = await authFetch(
+      `/match-recommendations/recipient/${recipientId}`,
+      {
+        token
+      }
+    );
+
+    setRecommendations(
+      Array.isArray(data)
+        ? data
+        : []
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Load Recommendations Error:",
+      error
+    );
+
+    setRecommendationsError(
+      error.message ||
+      "Unable to load potential matches."
+    );
+
+  } finally {
+
+    setRecommendationsLoading(false);
+
+  }
+};
+useEffect(() => {
+
+  if (
+    activeTab === "matches" &&
+    recipientId
+  ) {
+    loadRecommendations();
+  }
+
+}, [
+  activeTab,
+  recipientId,
+  token
+]);
 
   // =====================================================
   // FIND DONOR FROM ACTIVE PLEDGES
@@ -293,6 +943,172 @@ export default function RecipientDashboard() {
   };
 
   // =====================================================
+// SEND RECOMMENDED MATCH TO DONOR
+// =====================================================
+
+const sendRecommendedDonorRequest =
+  async (recommendation) => {
+
+    if (!recipientId) {
+      setRecommendationsError(
+        "Recipient ID is missing. Please login again."
+      );
+      return;
+    }
+
+    try {
+
+      setRecommendationActionId(
+        recommendation.id
+      );
+
+      setRecommendationsError("");
+      setRecommendationMessage("");
+
+      // -----------------------------------------------
+      // 1. CREATE REAL ORGAN REQUEST
+      // -----------------------------------------------
+
+      await authFetch(
+        "/requests",
+        {
+          method: "POST",
+          token,
+
+          body: {
+            recipientId,
+
+            donorId:
+              recommendation.donorId,
+
+            pledgeId:
+              recommendation.pledgeId,
+
+            organ:
+              recommendation.organ,
+
+            bloodGroup:
+              recommendation.bloodGroup,
+
+            hospital:
+              recommendation.hospitalName ||
+              "Assigned Hospital"
+          }
+        }
+      );
+
+
+      // -----------------------------------------------
+      // 2. MARK RECOMMENDATION AS REQUEST SENT
+      // -----------------------------------------------
+
+      await authFetch(
+        `/match-recommendations/${recommendation.id}/status`,
+        {
+          method: "PATCH",
+          token,
+
+          body: {
+            recipientId,
+            status: "Request Sent"
+          }
+        }
+      );
+
+
+      setRecommendationMessage(
+        `Request sent to ${recommendation.donorName}. The donor can now review your request.`
+      );
+
+
+      // Refresh recommendations
+      await loadRecommendations();
+
+
+      // Refresh Organ Requests tab
+      setRequestRefreshKey(
+        (previous) =>
+          previous + 1
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Send Recommended Request Error:",
+        error
+      );
+
+      setRecommendationsError(
+        error.message ||
+        "Unable to send request to donor."
+      );
+
+    } finally {
+
+      setRecommendationActionId(
+        null
+      );
+
+    }
+  };
+
+  // =====================================================
+// DECLINE HOSPITAL RECOMMENDATION
+// =====================================================
+
+const declineRecommendation =
+  async (recommendation) => {
+
+    try {
+
+      setRecommendationActionId(
+        recommendation.id
+      );
+
+      setRecommendationsError("");
+      setRecommendationMessage("");
+
+      await authFetch(
+        `/match-recommendations/${recommendation.id}/status`,
+        {
+          method: "PATCH",
+          token,
+
+          body: {
+            recipientId,
+            status: "Declined"
+          }
+        }
+      );
+
+      setRecommendationMessage(
+        "Match recommendation declined."
+      );
+
+      await loadRecommendations();
+
+    } catch (error) {
+
+      console.error(
+        "Decline Recommendation Error:",
+        error
+      );
+
+      setRecommendationsError(
+        error.message ||
+        "Unable to decline recommendation."
+      );
+
+    } finally {
+
+      setRecommendationActionId(
+        null
+      );
+
+    }
+  };
+
+  // =====================================================
   // CONTENT
   // =====================================================
 
@@ -309,6 +1125,29 @@ export default function RecipientDashboard() {
         />
       );
     }
+
+    // ---------------- POTENTIAL MATCHES ----------------
+
+if (activeTab === "matches") {
+  return (
+    <PotentialMatches
+      recommendations={recommendations}
+      loading={recommendationsLoading}
+      error={recommendationsError}
+      message={recommendationMessage}
+      actionId={recommendationActionId}
+      onSendRequest={
+        sendRecommendedDonorRequest
+      }
+      onDecline={
+        declineRecommendation
+      }
+      onRefresh={
+        loadRecommendations
+      }
+    />
+  );
+}
 
     // ---------------- REQUESTS ----------------
 
@@ -338,6 +1177,8 @@ export default function RecipientDashboard() {
    if (activeTab === "records") {
   return <MedicalRecordsPage />;
 }
+
+
 
     // =====================================================
     // DASHBOARD
@@ -900,6 +1741,11 @@ export default function RecipientDashboard() {
                 id: "profile",
                 label: "Profile",
                 icon: "👤"
+              },
+              {
+                id: "matches",
+                label: "Potential Matches",
+                icon: "🧬"
               },
               {
                 id: "requests",
@@ -1532,117 +2378,7 @@ function Appointments({
   );
 }
 
-// =====================================================
-// MEDICAL RECORDS
-// =====================================================
 
-// function MedicalRecords({
-//   userId,
-//   token
-// }) {
-//   const path =
-//     userId
-//       ? `/users/${userId}/records`
-//       : "";
-
-//   const {
-//     items,
-//     loading,
-//     error
-//   } = useFetchedList(
-//     path,
-//     token,
-//     userId
-//   );
-
-//   return (
-//     <div style={styles.card}>
-//       <h2 style={styles.cardTitle}>
-//         Medical Records
-//       </h2>
-
-//       <p style={styles.cardSubtitle}>
-//         Medical records linked to your
-//         transplant account.
-//       </p>
-
-//       {loading ? (
-//         <p>
-//           Loading records...
-//         </p>
-
-//       ) : error ? (
-//         <div style={styles.errorBox}>
-//           ⚠️ {error}
-//         </div>
-
-//       ) : items.length === 0 ? (
-//         <div style={styles.emptyState}>
-//           <span
-//             style={{
-//               fontSize: "32px"
-//             }}
-//           >
-//             📄
-//           </span>
-
-//           <h3>
-//             No Medical Records
-//           </h3>
-
-//           <p>
-//             Your medical records will
-//             appear here.
-//           </p>
-//         </div>
-
-//       ) : (
-//         <div style={styles.requestList}>
-//           {items.map((record) => (
-//             <div
-//               key={record.id}
-//               style={
-//                 styles.requestRow
-//               }
-//             >
-//               <div>
-//                 <strong>
-//                   {record.title ||
-//                     "Record"}
-//                 </strong>
-
-//                 <span
-//                   style={{
-//                     display: "block",
-//                     fontSize: "12px",
-//                     color: "#64748b"
-//                   }}
-//                 >
-//                   {record.date}
-//                 </span>
-//               </div>
-
-//               {record.url && (
-//                 <a
-//                   href={record.url}
-//                   target="_blank"
-//                   rel="noreferrer"
-//                   style={{
-//                     fontSize: "12px",
-//                     color: "#2563eb",
-//                     fontWeight: 700
-//                   }}
-//                 >
-//                   View
-//                 </a>
-//               )}
-//             </div>
-//           ))}
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
 
 // =====================================================
 // STYLES
@@ -2028,5 +2764,256 @@ const styles = {
     textAlign: "center",
     padding: "40px 20px",
     color: "#64748b"
-  }
+  },
+  matchesHeader: {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+  gap: "20px",
+  marginBottom: "20px"
+},
+
+matchesEyebrow: {
+  display: "block",
+  color: "#2563eb",
+  fontSize: "11px",
+  fontWeight: "800",
+  letterSpacing: "1.2px",
+  marginBottom: "6px"
+},
+
+matchesHeading: {
+  margin: 0,
+  color: "#0f172a",
+  fontSize: "28px",
+  fontWeight: "800"
+},
+
+matchesSubtitle: {
+  margin: "6px 0 0",
+  color: "#64748b",
+  fontSize: "14px"
+},
+
+matchSafetyBanner: {
+  background: "#eff6ff",
+  border: "1px solid #bfdbfe",
+  borderRadius: "12px",
+  padding: "14px 18px",
+  marginBottom: "22px",
+  color: "#1e3a8a"
+},
+
+recommendationList: {
+  display: "flex",
+  flexDirection: "column",
+  gap: "20px"
+},
+
+recommendationCard: {
+  background: "#ffffff",
+  border: "1px solid #dbe3ee",
+  borderRadius: "16px",
+  overflow: "hidden",
+  boxShadow:
+    "0 4px 18px rgba(15,23,42,0.05)"
+},
+
+recommendationTop: {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "18px 22px",
+  borderBottom: "1px solid #f1f5f9"
+},
+
+recommendedBy: {
+  display: "block",
+  fontSize: "9px",
+  fontWeight: "800",
+  color: "#94a3b8",
+  letterSpacing: "1px"
+},
+
+hospitalName: {
+  display: "block",
+  marginTop: "4px",
+  color: "#334155",
+  fontSize: "14px"
+},
+
+recommendationBadge: {
+  background: "#ecfdf5",
+  color: "#047857",
+  padding: "5px 10px",
+  borderRadius: "20px",
+  fontSize: "11px",
+  fontWeight: "800"
+},
+
+recommendationDonor: {
+  display: "flex",
+  alignItems: "center",
+  gap: "14px",
+  padding: "22px"
+},
+
+matchDonorAvatar: {
+  width: "52px",
+  height: "52px",
+  borderRadius: "14px",
+  background: "#dcfce7",
+  color: "#047857",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: "20px",
+  fontWeight: "800"
+},
+
+matchSmallLabel: {
+  color: "#94a3b8",
+  fontSize: "9px",
+  fontWeight: "800"
+},
+
+matchDonorName: {
+  margin: "2px 0 7px",
+  fontSize: "20px",
+  color: "#0f172a"
+},
+
+matchTags: {
+  display: "flex",
+  gap: "7px"
+},
+
+matchTag: {
+  background: "#f1f5f9",
+  color: "#475569",
+  padding: "4px 9px",
+  borderRadius: "6px",
+  fontSize: "11px",
+  fontWeight: "700"
+},
+
+completenessBox: {
+  margin: "0 22px 20px",
+  padding: "16px",
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  borderRadius: "10px"
+},
+
+completenessHeader: {
+  display: "flex",
+  justifyContent: "space-between",
+  fontSize: "12px",
+  color: "#475569",
+  marginBottom: "8px"
+},
+
+completenessTrack: {
+  height: "7px",
+  background: "#dbeafe",
+  borderRadius: "20px",
+  overflow: "hidden"
+},
+
+completenessFill: {
+  height: "100%",
+  background: "#2563eb",
+  borderRadius: "20px"
+},
+
+completenessNote: {
+  display: "block",
+  marginTop: "7px",
+  color: "#94a3b8",
+  fontSize: "10px"
+},
+
+matchEvidenceGrid: {
+  display: "grid",
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(280px, 1fr))",
+  gap: "20px",
+  padding: "0 22px 20px"
+},
+
+matchEvidenceTitle: {
+  color: "#334155",
+  fontSize: "12px",
+  margin: "0 0 10px",
+  textTransform: "uppercase"
+},
+
+evidenceRow: {
+  display: "flex",
+  gap: "8px",
+  alignItems: "flex-start",
+  marginBottom: "8px",
+  color: "#475569",
+  fontSize: "12px",
+  lineHeight: "1.5"
+},
+
+evidenceSuccess: {
+  color: "#059669",
+  fontWeight: "900"
+},
+
+evidenceWarning: {
+  color: "#d97706",
+  fontWeight: "900"
+},
+
+recommendationActions: {
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: "10px",
+  padding: "16px 22px",
+  background: "#fafcff",
+  borderTop: "1px solid #f1f5f9"
+},
+
+declineMatchBtn: {
+  padding: "9px 16px",
+  background: "#ffffff",
+  border: "1px solid #fecaca",
+  color: "#dc2626",
+  borderRadius: "8px",
+  fontWeight: "700",
+  cursor: "pointer"
+},
+
+sendDonorBtn: {
+  padding: "9px 18px",
+  background: "#2563eb",
+  border: "none",
+  color: "#ffffff",
+  borderRadius: "8px",
+  fontWeight: "700",
+  cursor: "pointer"
+},
+
+matchEmptyCard: {
+  textAlign: "center",
+  padding: "50px 20px",
+  background: "#ffffff",
+  border: "1px dashed #cbd5e1",
+  borderRadius: "16px",
+  color: "#64748b"
+},
+
+matchEmptyIcon: {
+  fontSize: "34px"
+},
+
+historyMeta: {
+  display: "block",
+  marginTop: "4px",
+  fontSize: "12px",
+  color: "#64748b"
+}
 };

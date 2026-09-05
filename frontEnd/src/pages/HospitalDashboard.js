@@ -80,6 +80,50 @@ const [medicalError, setMedicalError] = useState("");
 const [verifyingId, setVerifyingId] = useState(null);
 const [analyzingId, setAnalyzingId] = useState(null);
 
+// ========================================
+// COMPATIBILITY SCREENING
+// ========================================
+
+const [
+  screeningRecipientId,
+  setScreeningRecipientId
+] = useState("");
+
+const [
+  screeningResult,
+  setScreeningResult
+] = useState(null);
+
+const [
+  screeningLoading,
+  setScreeningLoading
+] = useState(false);
+
+const [
+  screeningError,
+  setScreeningError
+] = useState("");
+
+const [
+  screeningRecipients,
+  setScreeningRecipients
+] = useState([]);
+
+const [
+  loadingScreeningRecipients,
+  setLoadingScreeningRecipients
+] = useState(false);
+
+const [
+  recommendingId,
+  setRecommendingId
+] = useState(null);
+
+const [
+  recommendedMatches,
+  setRecommendedMatches
+] = useState({});
+
   // ========================================
   // OPERATIONS
   // ========================================
@@ -935,6 +979,116 @@ const handleViewMedicalRecord =
       "_blank"
     );
   };
+
+  // ==========================================
+// LOAD RECIPIENTS READY FOR SCREENING
+// ==========================================
+
+const loadScreeningRecipients =
+  useCallback(async () => {
+
+    try {
+
+      setLoadingScreeningRecipients(true);
+      setScreeningError("");
+
+      const data =
+        await authFetch(
+          "/match/recipients/ready",
+          {
+            token
+          }
+        );
+
+      setScreeningRecipients(
+        Array.isArray(data)
+          ? data
+          : []
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Load Screening Recipients Error:",
+        error
+      );
+
+      setScreeningError(
+        error.message ||
+        "Unable to load screening recipients."
+      );
+
+    } finally {
+
+      setLoadingScreeningRecipients(false);
+
+    }
+
+  }, [token]);
+
+  useEffect(() => {
+
+  if (activeTab === "screening") {
+    loadScreeningRecipients();
+  }
+
+}, [
+  activeTab,
+  loadScreeningRecipients
+]);
+
+  // ==========================================
+// RUN COMPATIBILITY SCREENING
+// ==========================================
+
+const handleCompatibilityScreening =
+  async () => {
+
+    const recipientId =
+      screeningRecipientId.trim();
+
+    if (!recipientId) {
+      setScreeningError(
+        "Please enter a recipient ID."
+      );
+      return;
+    }
+
+    try {
+
+      setScreeningLoading(true);
+      setScreeningError("");
+      setScreeningResult(null);
+
+      const data =
+        await authFetch(
+          `/match/recipient/${recipientId}`,
+          {
+            token
+          }
+        );
+
+      setScreeningResult(data);
+
+    } catch (error) {
+
+      console.error(
+        "Compatibility Screening Error:",
+        error
+      );
+
+      setScreeningError(
+        error.message ||
+        "Unable to run compatibility screening."
+      );
+
+    } finally {
+
+      setScreeningLoading(false);
+
+    }
+  };
+
 // ==========================================
 // RENDER MEDICAL VERIFICATION TAB
 // ==========================================
@@ -1652,6 +1806,842 @@ const renderMedicalVerification = () => {
   );
 };
 
+// ==========================================
+// RECOMMEND MATCH TO RECIPIENT
+// ==========================================
+
+const handleRecommendMatch =
+  async (match) => {
+
+    if (
+      !screeningResult?.recipient?.id ||
+      !hospitalId
+    ) {
+      setScreeningError(
+        "Recipient or hospital information is missing."
+      );
+      return;
+    }
+
+    try {
+
+      setRecommendingId(
+        match.pledgeId
+      );
+
+      setScreeningError("");
+
+      await authFetch(
+        "/match-recommendations",
+        {
+          method: "POST",
+          token,
+
+          body: {
+            recipientId:
+              screeningResult.recipient.id,
+
+            donorId:
+              match.donorId,
+
+            pledgeId:
+              match.pledgeId,
+
+            hospitalId,
+
+            organ:
+              match.organ,
+
+            bloodGroup:
+              screeningResult.recipient
+                .verifiedBloodGroup,
+
+            screeningStatus:
+              match.screeningStatus,
+
+            dataCompleteness:
+              match.dataCompleteness,
+
+            factors:
+              match.factors || [],
+
+            missingEvidence:
+              match.missingEvidence || []
+          }
+        }
+      );
+
+      setRecommendedMatches(
+        (previous) => ({
+          ...previous,
+          [match.pledgeId]: true
+        })
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Recommend Match Error:",
+        error
+      );
+
+      // Your backend intentionally returns
+      // 409 for an existing recommendation.
+      if (error.status === 409) {
+
+        setRecommendedMatches(
+          (previous) => ({
+            ...previous,
+            [match.pledgeId]: true
+          })
+        );
+
+        return;
+      }
+
+      setScreeningError(
+        error.message ||
+        "Unable to recommend this match."
+      );
+
+    } finally {
+
+      setRecommendingId(null);
+
+    }
+  };
+
+// ==========================================
+// RENDER COMPATIBILITY SCREENING
+// ==========================================
+
+const renderCompatibilityScreening = () => {
+
+  const recipient =
+    screeningResult?.recipient;
+
+  const evidence =
+    screeningResult?.medicalEvidence;
+
+  const matches =
+    Array.isArray(
+      screeningResult?.matches
+    )
+      ? screeningResult.matches
+      : [];
+
+  return (
+    <div className="cs-page">
+
+      {/* HEADER */}
+      <div className="cs-header">
+
+        <div>
+          <div className="cs-eyebrow">
+            EXPLAINABLE MATCHING
+          </div>
+
+          <h1>
+            Compatibility Screening
+          </h1>
+
+          <p>
+            Screen verified recipient medical
+            evidence against active donor pledges.
+          </p>
+        </div>
+
+        <div className="cs-header-badge">
+          AI-Assisted Decision Support
+        </div>
+
+      </div>
+
+
+      {/* SAFETY BANNER */}
+      <div className="cs-info-banner">
+
+        <div className="cs-info-icon">
+          i
+        </div>
+
+        <div>
+          <strong>
+            Clinical review remains required
+          </strong>
+
+          <p>
+            Screening results are based only on
+            available verified evidence and must
+            not be treated as a final transplant
+            eligibility or allocation decision.
+          </p>
+        </div>
+
+      </div>
+
+
+      {/* SEARCH */}
+      <div className="cs-search-card">
+
+        <div className="cs-search-content">
+
+          <div>
+            <span className="cs-search-label">
+              Recipient ID
+            </span>
+
+            <h3>
+              Run verified-evidence screening
+            </h3>
+
+            <p>
+              Enter the recipient's ID to compare
+              their verified clinical evidence
+              against active donor pledges.
+            </p>
+          </div>
+
+
+          <div className="cs-search-controls">
+
+<select
+  className="cs-recipient-input"
+  value={screeningRecipientId}
+  disabled={loadingScreeningRecipients}
+  onChange={(event) => {
+    setScreeningRecipientId(
+      event.target.value
+    );
+
+    // Clear previous screening result
+    // when another recipient is selected
+    setScreeningResult(null);
+    setScreeningError("");
+  }}
+>
+  <option value="">
+    {loadingScreeningRecipients
+      ? "Loading recipients..."
+      : "Select recipient"}
+  </option>
+
+  {screeningRecipients.map(
+    (recipient) => (
+      <option
+        key={recipient.id}
+        value={recipient.id}
+      >
+        {recipient.fullName}
+        {" — "}
+        {recipient.organ}
+        {" — "}
+        {recipient.verifiedBloodGroup}
+      </option>
+    )
+  )}
+</select>
+
+            <button
+              type="button"
+              className="cs-run-btn"
+              disabled={screeningLoading}
+              onClick={
+                handleCompatibilityScreening
+              }
+            >
+              {screeningLoading
+                ? "Screening..."
+                : "Run Screening"}
+            </button>
+
+          </div>
+
+        </div>
+
+        {screeningError && (
+          <div className="cs-error">
+            ⚠ {screeningError}
+          </div>
+        )}
+
+      </div>
+
+
+      {/* LOADING */}
+      {screeningLoading && (
+
+        <div className="cs-state-card">
+
+          <div className="cs-loader" />
+
+          <h3>
+            Running compatibility screening
+          </h3>
+
+          <p>
+            Checking hospital-verified evidence
+            and active donor pledges...
+          </p>
+
+        </div>
+
+      )}
+
+
+      {/* RESULT */}
+      {!screeningLoading &&
+        screeningResult && (
+
+        <>
+
+          {/* RECIPIENT SUMMARY */}
+
+          <div className="cs-recipient-card">
+
+            <div className="cs-recipient-avatar">
+              {recipient?.name
+                ?.charAt(0)
+                ?.toUpperCase() || "R"}
+            </div>
+
+            <div className="cs-recipient-info">
+
+              <span>
+                RECIPIENT
+              </span>
+
+              <h2>
+                {recipient?.name ||
+                  "Recipient"}
+              </h2>
+
+              <div className="cs-recipient-tags">
+
+                <span>
+                  🫀 {recipient?.organ || "—"}
+                </span>
+
+                <span>
+                  🩸{" "}
+                  {recipient?.verifiedBloodGroup ||
+                    recipient?.registeredBloodGroup ||
+                    "—"}
+                </span>
+
+                {screeningResult
+                  ?.readyForMatching && (
+                  <span className="cs-ready-tag">
+                    ✓ Ready for Screening
+                  </span>
+                )}
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+          {/* NOT READY */}
+
+          {!screeningResult
+            ?.readyForMatching && (
+
+            <div className="cs-not-ready">
+
+              <div className="cs-not-ready-icon">
+                !
+              </div>
+
+              <div>
+
+                <h3>
+                  Additional verified evidence
+                  required
+                </h3>
+
+                <p>
+                  {screeningResult?.reason ||
+                    "This recipient is not ready for matching."}
+                </p>
+
+                {screeningResult
+                  ?.requiredEvidence
+                  ?.length > 0 && (
+
+                  <div className="cs-required-list">
+
+                    {screeningResult
+                      .requiredEvidence
+                      .map((item) => (
+
+                      <span key={item}>
+                        ○ {item}
+                      </span>
+
+                    ))}
+
+                  </div>
+
+                )}
+
+              </div>
+
+            </div>
+
+          )}
+
+
+          {/* READY */}
+
+          {screeningResult
+            ?.readyForMatching && (
+
+            <>
+
+              {/* EVIDENCE SUMMARY */}
+
+              <div className="cs-evidence-grid">
+
+                <div className="cs-evidence-card">
+
+                  <span>
+                    Verified Records
+                  </span>
+
+                  <strong>
+                    {evidence
+                      ?.verifiedRecords ?? 0}
+                  </strong>
+
+                  <small>
+                    Hospital-approved evidence
+                  </small>
+
+                </div>
+
+
+                <div className="cs-evidence-card">
+
+                  <span>
+                    Blood Group
+                  </span>
+
+                  <strong>
+                    {recipient
+                      ?.verifiedBloodGroup ||
+                      "—"}
+                  </strong>
+
+                  <small className="cs-success-text">
+                    ✓ Hospital Verified
+                  </small>
+
+                </div>
+
+
+                <div className="cs-evidence-card">
+
+                  <span>
+                    Recipient HLA
+                  </span>
+
+                  <strong>
+                    {evidence?.hlaAvailable
+                      ? "Available"
+                      : "Missing"}
+                  </strong>
+
+                  <small>
+                    {evidence?.hlaAvailable
+                      ? "Verified HLA evidence"
+                      : "Additional evidence needed"}
+                  </small>
+
+                </div>
+
+
+                <div className="cs-evidence-card">
+
+                  <span>
+                    Potential Donors
+                  </span>
+
+                  <strong>
+                    {screeningResult
+                      ?.totalMatches ?? 0}
+                  </strong>
+
+                  <small>
+                    Active pledges screened
+                  </small>
+
+                </div>
+
+              </div>
+
+
+              {/* NO MATCH */}
+
+              {matches.length === 0 && (
+
+                <div className="cs-state-card">
+
+                  <div className="cs-empty-icon">
+                    🔎
+                  </div>
+
+                  <h3>
+                    No potential donor found
+                  </h3>
+
+                  <p>
+                    There is currently no active
+                    donor pledge satisfying the
+                    basic screening criteria.
+                  </p>
+
+                </div>
+
+              )}
+
+
+              {/* MATCHES */}
+
+              {matches.length > 0 && (
+
+                <div className="cs-match-section">
+
+                  <div className="cs-section-heading">
+
+                    <div>
+                      <span>
+                        SCREENING RESULTS
+                      </span>
+
+                      <h2>
+                        Potential Donor Matches
+                      </h2>
+                    </div>
+
+                    <div className="cs-match-count">
+                      {matches.length} Found
+                    </div>
+
+                  </div>
+
+
+                  <div className="cs-match-list">
+
+                    {matches.map(
+                      (match) => {
+
+                        const completeness =
+                          Number(
+                            match.dataCompleteness
+                          ) || 0;
+
+                        return (
+
+                          <div
+                            className="cs-match-card"
+                            key={
+                              match.pledgeId ||
+                              match.donorId
+                            }
+                          >
+
+                            {/* TOP */}
+
+                            <div className="cs-match-top">
+
+                              <div className="cs-donor-profile">
+
+                                <div className="cs-donor-avatar">
+                                  {match.donorName
+                                    ?.charAt(0)
+                                    ?.toUpperCase() ||
+                                    "D"}
+                                </div>
+
+                                <div>
+
+                                  <span>
+                                    POTENTIAL DONOR
+                                  </span>
+
+                                  <h3>
+                                    {match.donorName}
+                                  </h3>
+
+                                  <div className="cs-donor-meta">
+
+                                    <span>
+                                      🫀 {match.organ}
+                                    </span>
+
+                                    <span>
+                                      🩸{" "}
+                                      {
+                                        match.donorBloodGroup
+                                      }
+                                    </span>
+
+                                  </div>
+
+                                </div>
+
+                              </div>
+
+
+                              <div className="cs-screening-status">
+
+                                <span>
+                                  BASIC SCREENING
+                                </span>
+
+                                <strong>
+                                  ✓ Criteria Met
+                                </strong>
+
+                              </div>
+
+                            </div>
+
+
+                            {/* BODY */}
+
+                            <div className="cs-match-body">
+
+                              {/* FACTORS */}
+
+                              <div className="cs-factor-column">
+
+                                <h4>
+                                  Matching Evidence
+                                </h4>
+
+                                {(match.factors || [])
+                                  .map(
+                                    (
+                                      factor,
+                                      index
+                                    ) => (
+
+                                    <div
+                                      className="cs-factor success"
+                                      key={`factor-${index}`}
+                                    >
+                                      <span>
+                                        ✓
+                                      </span>
+
+                                      <p>
+                                        {factor}
+                                      </p>
+                                    </div>
+
+                                  ))}
+
+                              </div>
+
+
+                              {/* MISSING */}
+
+                              <div className="cs-factor-column">
+
+                                <h4>
+                                  Missing Evidence
+                                </h4>
+
+                                {(match
+                                  .missingEvidence ||
+                                  []).length ===
+                                0 ? (
+
+                                  <div className="cs-factor success">
+
+                                    <span>
+                                      ✓
+                                    </span>
+
+                                    <p>
+                                      No currently tracked
+                                      screening evidence is
+                                      missing.
+                                    </p>
+
+                                  </div>
+
+                                ) : (
+
+                                  match
+                                    .missingEvidence
+                                    .map(
+                                      (
+                                        item,
+                                        index
+                                      ) => (
+
+                                      <div
+                                        className="cs-factor warning"
+                                        key={`missing-${index}`}
+                                      >
+                                        <span>
+                                          ○
+                                        </span>
+
+                                        <p>
+                                          {item}
+                                        </p>
+                                      </div>
+
+                                    ))
+
+                                )}
+
+                              </div>
+
+
+                              {/* COMPLETENESS */}
+
+                              <div className="cs-completeness-panel">
+
+                                <span className="cs-completeness-label">
+                                  EVIDENCE COMPLETENESS
+                                </span>
+
+                                <div className="cs-completeness-value">
+                                  {completeness}%
+                                </div>
+
+                                <div className="cs-progress">
+
+                                  <div
+                                    className="cs-progress-fill"
+                                    style={{
+                                      width:
+                                        `${Math.min(
+                                          completeness,
+                                          100
+                                        )}%`
+                                    }}
+                                  />
+
+                                </div>
+
+                                <p>
+                                  Evidence completeness is
+                                  not a medical
+                                  compatibility score.
+                                </p>
+
+                              </div>
+
+                            </div>
+
+
+                            {/* RECOMMENDATION */}
+
+                            <div className="cs-recommendation">
+
+                              <div className="cs-recommendation-icon">
+                                i
+                              </div>
+
+                              <div>
+                                <strong>
+                                  Screening Recommendation
+                                </strong>
+
+                                <p>
+                                  {
+                                    match.recommendation
+                                  }
+                                </p>
+                              </div>
+
+                            </div>
+
+
+                            {/* ACTIONS */}
+
+                            <div className="cs-match-actions">
+
+                              <button
+                                type="button"
+                                className="cs-secondary-btn"
+                                onClick={() => {
+                                  setActiveTab(
+                                    "verification"
+                                  );
+                                }}
+                              >
+                                View Medical Evidence
+                              </button>
+
+
+                              <button
+                                type="button"
+                                className="cs-primary-btn"
+                                disabled={
+                                recommendingId === match.pledgeId ||
+                                recommendedMatches[match.pledgeId]
+                                 }
+                                onClick={() =>
+                                 handleRecommendMatch(match)
+                                 }
+                               >
+                                 {recommendingId === match.pledgeId
+                                   ? "Sending Recommendation..."
+                                   : recommendedMatches[match.pledgeId]
+                                     ? "✓ Recommended"
+                                     : "Recommend Match to Recipient"}
+                               </button>
+
+                            </div>
+
+
+                            <div className="cs-disclaimer">
+                              {match.disclaimer}
+                            </div>
+
+                          </div>
+
+                        );
+
+                      }
+                    )}
+
+                  </div>
+
+                </div>
+
+              )}
+
+            </>
+
+          )}
+
+
+          {screeningResult?.disclaimer && (
+            <div className="cs-global-disclaimer">
+              <strong>
+                Clinical Safety:
+              </strong>{" "}
+              {screeningResult.disclaimer}
+            </div>
+          )}
+
+        </>
+
+      )}
+
+    </div>
+  );
+};
+
   // ========================================
   // OPERATIONS
   // ========================================
@@ -2019,6 +3009,11 @@ const renderMedicalVerification = () => {
   {activeTab === "verification" &&
     renderMedicalVerification()
   }
+  
+  {activeTab === "screening" &&
+    renderCompatibilityScreening()
+  }
+
 
   {activeTab === "operations" &&
     renderOperations(false)

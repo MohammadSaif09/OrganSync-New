@@ -2,7 +2,8 @@ import express from "express";
 
 import {
   hospitalMatch,
-  recipientCompatibilityMatch
+  recipientCompatibilityMatch,
+  getScreeningRecipients
 } from "../controllers/matchController.js";
 
 
@@ -17,6 +18,11 @@ const router =
 router.post(
   "/match/hospital",
   hospitalMatch
+);
+
+router.get(
+  "/match/recipients/ready",
+  getScreeningRecipients
 );
 
 

@@ -12,6 +12,7 @@ import pledgeRoutes from "./routes/pledgeRoutes.js";
 import matchRoutes from "./routes/matchRoutes.js";
 import hospitalRoutes from "./routes/hospitalRoutes.js";
 import allocationRoutes from "./routes/allocationRoutes.js";
+import matchRecommendationRoutes from "./routes/matchRecommendationRoutes.js";
 
 dotenv.config();
 
@@ -54,6 +55,12 @@ app.use(
 app.use(
   "/api/medical-records",
   medicalRecordRoutes
+);
+// Match Recommendations
+
+app.use(
+  "/api",
+  matchRecommendationRoutes
 );
 
 // Requests
