@@ -1,25 +1,23 @@
 import express from "express";
 
 import {
-  createAllocation
-} from "../controllers/allocationController.js";
+  getAuditLogs
+} from "../controllers/auditLogController.js";
 
 import {
   protect,
-  verifiedHospitalOnly
+  adminOnly
 } from "../middleware/authMiddleware.js";
 
 
 const router = express.Router();
 
 
-router.post(
-  "/allocations",
-
+router.get(
+  "/admin/audit-logs",
   protect,
-  verifiedHospitalOnly,
-
-  createAllocation
+  adminOnly,
+  getAuditLogs
 );
 
 

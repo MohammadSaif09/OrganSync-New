@@ -1,23 +1,103 @@
-import express from 'express';
+import express from "express";
+
 import {
   getHospitalStats,
   getOperations,
   listHospitals,
   verifyHospital
-} from '../controllers/hospitalController.js';
+} from "../controllers/hospitalController.js";
+
+import {
+  protect,
+  adminOnly,
+  allowRoles,
+  sameUserOrRole,
+  verifiedHospitalOnly
+} from "../middleware/authMiddleware.js";
+
 
 const router = express.Router();
 
-// Admin — partner hospital list
-router.get('/', listHospitals);
 
-// Admin — approve a hospital's license
-router.patch('/:id/verify', verifyHospital);
+// ==========================================
+// PARTNER HOSPITAL LIST
+// ==========================================
 
-// Hospital dashboard — metric cards
-router.get('/:hospitalId/stats', getHospitalStats);
+router.get(
+  "/",
 
-// Hospital dashboard — scheduled operations table
-router.get('/:hospitalId/operations', getOperations);
+  protect,
+
+  allowRoles(
+    "recipient",
+    "donor",
+    "hospital",
+    "admin"
+  ),
+
+  listHospitals
+);
+
+
+// ==========================================
+// ADMIN VERIFY HOSPITAL
+// Legacy endpoint
+// ==========================================
+
+router.patch(
+  "/:id/verify",
+
+  protect,
+  adminOnly,
+
+  verifyHospital
+);
+
+
+// ==========================================
+// HOSPITAL DASHBOARD STATS
+// ==========================================
+
+router.get(
+  "/:hospitalId/stats",
+
+  protect,
+
+  allowRoles(
+    "hospital",
+    "admin"
+  ),
+
+  sameUserOrRole(
+    "hospitalId",
+    "admin"
+  ),
+
+  getHospitalStats
+);
+
+
+// ==========================================
+// HOSPITAL OPERATIONS
+// ==========================================
+
+router.get(
+  "/:hospitalId/operations",
+
+  protect,
+
+  allowRoles(
+    "hospital",
+    "admin"
+  ),
+
+  sameUserOrRole(
+    "hospitalId",
+    "admin"
+  ),
+
+  getOperations
+);
+
 
 export default router;

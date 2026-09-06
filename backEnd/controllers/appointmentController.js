@@ -18,8 +18,19 @@ import {
 export const getAppointments =
   async (req, res) => {
     try {
+      const role =
+        String(req.user?.role || "")
+          .toLowerCase();
+
+      const query =
+        role === "admin"
+          ? {}
+          : {
+              hospitalId: req.user._id
+            };
+
       const appointments =
-        await Appointment.find()
+        await Appointment.find(query)
           .populate(
             "user",
             "fullName email"
@@ -42,14 +53,11 @@ export const getAppointments =
         error
       );
 
-      return res
-        .status(500)
-        .json({
-          message: error.message
-        });
+      return res.status(500).json({
+        message: error.message
+      });
     }
   };
-
 
 // ==========================================
 // GET APPOINTMENTS FOR ONE USER
@@ -131,18 +139,6 @@ export const getAppointmentsByUser =
   };
 
 
-// ==========================================
-// CREATE / SCHEDULE TRANSPLANT APPOINTMENT
-//
-// body:
-// {
-//   allocationId,
-//   date,
-//   time,
-//   surgeon
-// }
-// ==========================================
-
 export const createAppointment =
   async (req, res) => {
     try {
@@ -202,6 +198,26 @@ export const createAppointment =
               "Allocation not found"
           });
       }
+
+      const loggedInHospitalId =
+  String(req.user?._id || "");
+
+const allocationHospitalId =
+  String(
+    allocation.hospitalId?._id ||
+    allocation.hospitalId ||
+    ""
+  );
+
+if (
+  loggedInHospitalId !==
+  allocationHospitalId
+) {
+  return res.status(403).json({
+    message:
+      "You cannot schedule an appointment for another hospital's allocation"
+  });
+}
 
 
       if (!allocation.recipientId) {
@@ -522,28 +538,47 @@ export const updateAppointment =
   async (req, res) => {
     try {
       const appointment =
-        await Appointment.findByIdAndUpdate(
-          req.params.id,
-          req.body,
-          {
-            new: true
-          }
+        await Appointment.findById(
+          req.params.id
         );
 
       if (!appointment) {
-        return res
-          .status(404)
-          .json({
-            message:
-              "Appointment not found"
-          });
+        return res.status(404).json({
+          message: "Appointment not found"
+        });
       }
+
+      if (
+        String(appointment.hospitalId) !==
+        String(req.user._id)
+      ) {
+        return res.status(403).json({
+          message:
+            "You cannot update another hospital's appointment"
+        });
+      }
+
+      const allowedUpdates = [
+        "date",
+        "time",
+        "surgeon",
+        "status"
+      ];
+
+      allowedUpdates.forEach((field) => {
+        if (
+          req.body[field] !== undefined
+        ) {
+          appointment[field] =
+            req.body[field];
+        }
+      });
+
+      await appointment.save();
 
       return res
         .status(200)
-        .json(
-          appointment
-        );
+        .json(appointment);
 
     } catch (error) {
       console.error(
@@ -551,12 +586,9 @@ export const updateAppointment =
         error
       );
 
-      return res
-        .status(500)
-        .json({
-          message:
-            error.message
-        });
+      return res.status(500).json({
+        message: error.message
+      });
     }
   };
 
@@ -569,25 +601,34 @@ export const deleteAppointment =
   async (req, res) => {
     try {
       const appointment =
-        await Appointment.findByIdAndDelete(
+        await Appointment.findById(
           req.params.id
         );
 
       if (!appointment) {
-        return res
-          .status(404)
-          .json({
-            message:
-              "Appointment not found"
-          });
+        return res.status(404).json({
+          message: "Appointment not found"
+        });
       }
 
-      return res
-        .status(200)
-        .json({
+      if (
+        String(appointment.hospitalId) !==
+        String(req.user._id)
+      ) {
+        return res.status(403).json({
           message:
-            "Appointment deleted successfully"
+            "You cannot delete another hospital's appointment"
         });
+      }
+
+      await Appointment.findByIdAndDelete(
+        appointment._id
+      );
+
+      return res.status(200).json({
+        message:
+          "Appointment deleted successfully"
+      });
 
     } catch (error) {
       console.error(
@@ -595,11 +636,8 @@ export const deleteAppointment =
         error
       );
 
-      return res
-        .status(500)
-        .json({
-          message:
-            error.message
-        });
+      return res.status(500).json({
+        message: error.message
+      });
     }
   };

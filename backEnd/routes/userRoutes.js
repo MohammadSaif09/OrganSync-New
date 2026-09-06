@@ -22,7 +22,7 @@ router.get('/', getUsers);
 
 
 // Create user
-router.post('/', createUser);
+router.post('/register', createUser);
 
 
 // Fetch user by ID

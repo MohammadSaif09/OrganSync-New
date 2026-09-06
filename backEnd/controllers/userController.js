@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import bcrypt from 'bcrypt';
 import Pledge from '../models/Pledge.js';
+import jwt from "jsonwebtoken";
 
 // ==========================================
 // GET ALL USERS
@@ -83,49 +84,98 @@ export const createUser = async (req, res) => {
 // LOGIN
 // ==========================================
 export const loginUser = async (req, res) => {
-    try {
-        const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-        const user = await User.findOne({ email });
-
-        if (!user) {
-            return res.status(401).json({
-                message: "User not found"
-            });
-        }
-
-        const passwordMatch = await bcrypt.compare(
-            password,
-            user.password
-        );
-
-        if (!passwordMatch) {
-            return res.status(401).json({
-                message: "Invalid email or password"
-            });
-        }
-
-        res.status(200).json({
-            message: "Login successful",
-
-            userId: user._id,
-            fullName: user.fullName,
-            role: user.role,
-            email: user.email,
-
-            // IMPORTANT
-            phone: user.phone,
-            bloodGroup: user.bloodGroup,
-            organ: user.organ
-        });
-
-    } catch (error) {
-        console.error("Login Error:", error);
-
-        res.status(500).json({
-            message: error.message
-        });
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required"
+      });
     }
+
+    const normalizedEmail =
+      email.toLowerCase().trim();
+
+    const user = await User.findOne({
+      email: normalizedEmail
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        message: "No account found with this email"
+      });
+    }
+
+    if (
+      (user.accountStatus || "Active") ===
+      "Suspended"
+    ) {
+      return res.status(403).json({
+        message:
+          "Your account has been suspended. Please contact the administrator."
+      });
+    }
+
+    const passwordMatch = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    if (!passwordMatch) {
+      return res.status(401).json({
+        message: "Invalid email or password"
+      });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      console.error(
+        "JWT_SECRET is missing from .env"
+      );
+
+      return res.status(500).json({
+        message: "Authentication configuration error"
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        userId: user._id.toString(),
+        role: user.role
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn:
+          process.env.JWT_EXPIRES_IN || "1d"
+      }
+    );
+
+    return res.status(200).json({
+      message: "Login successful",
+
+      userId: user._id,
+      fullName: user.fullName,
+      role: user.role,
+      email: user.email,
+      phone: user.phone,
+      bloodGroup: user.bloodGroup,
+      organ: user.organ,
+
+      accountStatus:
+        user.accountStatus || "Active",
+
+      verificationState:
+        user.verificationState || "Pending",
+
+      token
+    });
+
+  } catch (error) {
+    console.error("Login Error:", error);
+
+    return res.status(500).json({
+      message: "Unable to login"
+    });
+  }
 };
 
 // ==========================================

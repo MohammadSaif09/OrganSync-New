@@ -21,6 +21,9 @@ export default function HospitalDashboard() {
     user?._id ||
     user?.id;
 
+  const isHospitalVerified =
+    user?.verificationState === "Verified";
+
   // ========================================
   // SIDEBAR
   // ========================================
@@ -325,14 +328,30 @@ const [
   // ========================================
 
   useEffect(() => {
-    loadStats();
+  // Basic dashboard is available
+  // even while hospital verification is pending.
+  loadStats();
+
+  // Clinical data must only load
+  // for verified hospitals.
+  if (isHospitalVerified) {
     loadTransplantCases();
     loadOperations();
-  }, [
-    loadStats,
-    loadTransplantCases,
-    loadOperations
-  ]);
+  } else {
+    setTransplantCases([]);
+    setOperations([]);
+    setLoadingCases(false);
+    setLoadingOperations(false);
+    setCasesError(null);
+    setOperationsError(null);
+  }
+
+}, [
+  loadStats,
+  loadTransplantCases,
+  loadOperations,
+  isHospitalVerified
+]);
 
   // ========================================
   // INITIATE ALLOCATION
@@ -362,8 +381,6 @@ const [
               body: {
                 requestId:
                   request.id,
-
-                hospitalId
               }
             }
           );
@@ -620,6 +637,12 @@ const [
   const renderCases = (
     compact = false
   ) => {
+    if (
+  !compact &&
+  !isHospitalVerified
+) {
+  return renderVerificationRequired();
+}
     const visibleCases =
       compact
         ? transplantCases.slice(
@@ -765,7 +788,8 @@ const [
                         {!compact && (
                           <td>
                             {request.status ===
-                              "Accepted" && (
+                              "Accepted" && 
+                              isHospitalVerified && (
                               <button
                                 className="hospital-allocate-btn"
                                 disabled={
@@ -786,7 +810,9 @@ const [
                             )}
 
                             {request.status ===
-                              "Hospital Review" && (
+                              "Hospital Review" && 
+                               isHospitalVerified && (
+                                
                               <button
                                 className="hospital-schedule-btn"
                                 onClick={() =>
@@ -882,13 +908,17 @@ const [
 };
 
 // LOAD WHEN VERIFICATION TAB OPENS
-  useEffect(() => {
+useEffect(() => {
   if (
-    activeTab === "verification"
+    activeTab === "verification" &&
+    isHospitalVerified
   ) {
     loadPendingMedicalRecords();
   }
-}, [activeTab]);
+}, [
+  activeTab,
+  isHospitalVerified
+]);
 
 const handleMedicalVerification =
   async (
@@ -904,10 +934,9 @@ const handleMedicalVerification =
         {
           method: "PATCH",
           token,
+
           body: {
-            status,
-            verifierId:
-              hospitalId
+            status
           }
         }
       );
@@ -973,11 +1002,64 @@ const handleAnalyzeMedicalRecord =
   };
 
 const handleViewMedicalRecord =
-  (recordId) => {
-    window.open(
-      `http://localhost:8080/api/medical-records/file/${recordId}`,
-      "_blank"
-    );
+  async (recordId) => {
+    try {
+      setMedicalError("");
+
+      const response = await fetch(
+        `http://localhost:8080/api/medical-records/file/${recordId}`,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        let message =
+          "Unable to open medical record.";
+
+        try {
+          const data =
+            await response.json();
+
+          message =
+            data.message || message;
+        } catch {
+          // Ignore JSON parse error
+        }
+
+        throw new Error(message);
+      }
+
+      const blob =
+        await response.blob();
+
+      const fileUrl =
+        URL.createObjectURL(blob);
+
+      window.open(
+        fileUrl,
+        "_blank",
+        "noopener,noreferrer"
+      );
+
+      setTimeout(() => {
+        URL.revokeObjectURL(fileUrl);
+      }, 60000);
+
+    } catch (error) {
+      console.error(
+        "View Medical Record Error:",
+        error
+      );
+
+      setMedicalError(
+        error.message ||
+        "Unable to open medical record."
+      );
+    }
   };
 
   // ==========================================
@@ -1026,15 +1108,17 @@ const loadScreeningRecipients =
 
   }, [token]);
 
-  useEffect(() => {
-
-  if (activeTab === "screening") {
+useEffect(() => {
+  if (
+    activeTab === "screening" &&
+    isHospitalVerified
+  ) {
     loadScreeningRecipients();
   }
-
 }, [
   activeTab,
-  loadScreeningRecipients
+  loadScreeningRecipients,
+  isHospitalVerified
 ]);
 
   // ==========================================
@@ -1089,6 +1173,61 @@ const handleCompatibilityScreening =
     }
   };
 
+  const renderVerificationRequired = () => {
+  return (
+    <div className="hospital-panel">
+      <div
+        style={{
+          padding: "60px 24px",
+          textAlign: "center"
+        }}
+      >
+        <div
+          style={{
+            fontSize: "42px",
+            marginBottom: "16px"
+          }}
+        >
+          🔒
+        </div>
+
+        <h2>
+          Hospital Verification Required
+        </h2>
+
+        <p
+          style={{
+            maxWidth: "600px",
+            margin: "12px auto",
+            color: "#64748b",
+            lineHeight: "1.6"
+          }}
+        >
+          Your hospital account must be verified
+          by an OrganSync administrator before
+          accessing clinical workflows.
+        </p>
+
+        <div
+          style={{
+            marginTop: "22px",
+            padding: "14px 18px",
+            background: "#fff7ed",
+            borderRadius: "10px",
+            display: "inline-block"
+          }}
+        >
+          Current status:{" "}
+          <strong>
+            {user?.verificationState ||
+              "Pending"}
+          </strong>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ==========================================
 // RENDER MEDICAL VERIFICATION TAB
 // ==========================================
@@ -1097,6 +1236,9 @@ const renderMedicalVerification = () => {
   if (activeTab !== "verification") {
     return null;
   }
+  if (!isHospitalVerified) {
+  return renderVerificationRequired();
+}
 
   return (
     <div className="mv-page">
@@ -1814,8 +1956,7 @@ const handleRecommendMatch =
   async (match) => {
 
     if (
-      !screeningResult?.recipient?.id ||
-      !hospitalId
+      !screeningResult?.recipient?.id
     ) {
       setScreeningError(
         "Recipient or hospital information is missing."
@@ -1846,8 +1987,6 @@ const handleRecommendMatch =
 
             pledgeId:
               match.pledgeId,
-
-            hospitalId,
 
             organ:
               match.organ,
@@ -1916,6 +2055,9 @@ const handleRecommendMatch =
 // ==========================================
 
 const renderCompatibilityScreening = () => {
+  if (!isHospitalVerified) {
+  return renderVerificationRequired();
+}
 
   const recipient =
     screeningResult?.recipient;
@@ -2649,6 +2791,19 @@ const renderCompatibilityScreening = () => {
   const renderOperations = (
     compact = false
   ) => {
+     if (
+    !compact &&
+    !isHospitalVerified
+  ) {
+    return renderVerificationRequired();
+  }
+
+  if (
+    compact &&
+    !isHospitalVerified
+  ) {
+    return null;
+  }
     const visibleOperations =
       compact
         ? operations.slice(
@@ -2801,62 +2956,76 @@ const renderCompatibilityScreening = () => {
   // APPOINTMENTS TAB
   // ========================================
 
-  const renderAppointments =
-    () => (
-      <section className="hospital-panel">
-        <div className="hospital-page-heading">
-          <h1>
-            Appointments
-          </h1>
+  const renderAppointments = () => {
+
+  if (!isHospitalVerified) {
+    return renderVerificationRequired();
+  }
+
+  return (
+    <section className="hospital-panel">
+
+      <div className="hospital-page-heading">
+        <h1>
+          Appointments
+        </h1>
+
+        <p>
+          Schedule approved transplant
+          cases and manage upcoming
+          hospital procedures.
+        </p>
+      </div>
+
+
+      <div className="hospital-appointment-summary">
+
+        <div className="hospital-appointment-icon">
+          📅
+        </div>
+
+
+        <div>
+
+          <h3>
+            {scheduledCount} Scheduled
+            Transplant
+            {scheduledCount === 1
+              ? ""
+              : "s"}
+          </h3>
+
 
           <p>
-            Schedule approved transplant
-            cases and manage upcoming
-            hospital procedures.
+            To schedule a new
+            transplant, open
+            Transplant Cases and
+            initiate allocation for
+            an accepted case.
           </p>
+
+
+          <button
+            className="hospital-primary-btn"
+            onClick={() =>
+              setActiveTab("cases")
+            }
+          >
+            Open Transplant Cases
+          </button>
+
         </div>
 
-        <div className="hospital-appointment-summary">
-          <div className="hospital-appointment-icon">
-            📅
-          </div>
+      </div>
 
-          <div>
-            <h3>
-              {scheduledCount} Scheduled
-              Transplant
-              {scheduledCount === 1
-                ? ""
-                : "s"}
-            </h3>
 
-            <p>
-              To schedule a new
-              transplant, open
-              Transplant Cases and
-              initiate allocation for
-              an accepted case.
-            </p>
+      <div className="hospital-section-spacing">
+        {renderOperations(false)}
+      </div>
 
-            <button
-              className="hospital-primary-btn"
-              onClick={() =>
-                setActiveTab(
-                  "cases"
-                )
-              }
-            >
-              Open Transplant Cases
-            </button>
-          </div>
-        </div>
-
-        <div className="hospital-section-spacing">
-          {renderOperations(false)}
-        </div>
-      </section>
-    );
-
+    </section>
+  );
+};
   // ========================================
   // DASHBOARD
   // ========================================
@@ -2864,11 +3033,26 @@ const renderCompatibilityScreening = () => {
   const renderDashboard =
     () => (
       <>
+      {!isHospitalVerified && (
+  <div
+    className="hospital-error-box"
+    style={{
+      marginBottom: "20px"
+    }}
+  >
+    🔒 Your hospital account is awaiting
+    administrator verification. Clinical
+    workflows will become available after
+    approval.
+  </div>
+)}
         <section className="hospital-welcome-banner">
           <div>
-            <span className="hospital-welcome-label">
-              VERIFIED TRANSPLANT UNIT
-            </span>
+<span className="hospital-welcome-label">
+  {isHospitalVerified
+    ? "VERIFIED TRANSPLANT UNIT"
+    : "HOSPITAL VERIFICATION PENDING"}
+</span>
 
             <h1>
               Welcome,{" "}
@@ -2971,7 +3155,8 @@ const renderCompatibilityScreening = () => {
           />
         </div>
 
-        {renderCases(true)}
+        {isHospitalVerified &&
+        renderCases(true)}
 
         <div className="hospital-section-spacing">
           {renderOperations(true)}

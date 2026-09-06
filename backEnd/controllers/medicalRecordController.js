@@ -839,11 +839,8 @@ export const verifyMedicalRecord =
       const { recordId } =
         req.params;
 
-      const {
-        status,
-        verifierId
-      } = req.body;
-
+      const { status } =
+        req.body;
 
       // ======================================
       // VALIDATE RECORD ID
@@ -854,31 +851,10 @@ export const verifyMedicalRecord =
           recordId
         )
       ) {
-        return res
-          .status(400)
-          .json({
-            message:
-              "Invalid medical record ID"
-          });
-      }
-
-
-      // ======================================
-      // VALIDATE VERIFIER
-      // ======================================
-
-      if (
-        !verifierId ||
-        !mongoose.Types.ObjectId.isValid(
-          verifierId
-        )
-      ) {
-        return res
-          .status(400)
-          .json({
-            message:
-              "Valid verifierId is required"
-          });
+        return res.status(400).json({
+          message:
+            "Invalid medical record ID"
+        });
       }
 
 
@@ -892,54 +868,26 @@ export const verifyMedicalRecord =
           "Rejected"
         ].includes(status)
       ) {
-        return res
-          .status(400)
-          .json({
-            message:
-              "Status must be Verified or Rejected"
-          });
+        return res.status(400).json({
+          message:
+            "Status must be Verified or Rejected"
+        });
       }
 
 
       // ======================================
-      // FIND VERIFIER
+      // AUTHENTICATED VERIFIER
       // ======================================
 
-      const verifier =
-        await User.findById(
-          verifierId
-        );
-
-
-      if (!verifier) {
-        return res
-          .status(404)
-          .json({
-            message:
-              "Verifier account not found"
-          });
+      if (!req.user?._id) {
+        return res.status(401).json({
+          message:
+            "Authentication required"
+        });
       }
 
-
-      // ======================================
-      // ONLY HOSPITAL / ADMIN
-      // ======================================
-
-      if (
-        ![
-          "hospital",
-          "admin"
-        ].includes(
-          verifier.role
-        )
-      ) {
-        return res
-          .status(403)
-          .json({
-            message:
-              "Only hospital or admin users can verify medical records."
-          });
-      }
+      const verifierId =
+        req.user._id;
 
 
       // ======================================
@@ -951,14 +899,11 @@ export const verifyMedicalRecord =
           recordId
         );
 
-
       if (!record) {
-        return res
-          .status(404)
-          .json({
-            message:
-              "Medical record not found"
-          });
+        return res.status(404).json({
+          message:
+            "Medical record not found"
+        });
       }
 
 
@@ -970,12 +915,10 @@ export const verifyMedicalRecord =
         record.extractionStatus !==
         "Extracted"
       ) {
-        return res
-          .status(409)
-          .json({
-            message:
-              "Medical document must be analyzed before verification."
-          });
+        return res.status(409).json({
+          message:
+            "Medical document must be analyzed before verification."
+        });
       }
 
 
@@ -992,13 +935,8 @@ export const verifyMedicalRecord =
       record.verifiedAt =
         new Date();
 
-
       await record.save();
 
-
-      // ======================================
-      // POPULATE VERIFIER
-      // ======================================
 
       const updated =
         await MedicalRecord.findById(
@@ -1010,41 +948,38 @@ export const verifyMedicalRecord =
           );
 
 
-      return res
-        .status(200)
-        .json({
-          message:
-            status === "Verified"
-              ? "Medical record verified successfully."
-              : "Medical record rejected.",
+      return res.status(200).json({
+        message:
+          status === "Verified"
+            ? "Medical record verified successfully."
+            : "Medical record rejected.",
 
-          record: {
-            id:
-              updated._id,
+        record: {
+          id:
+            updated._id,
 
-            documentType:
-              updated.documentType,
+          documentType:
+            updated.documentType,
 
-            fileName:
-              updated.originalFileName,
+          fileName:
+            updated.originalFileName,
 
-            extractionStatus:
-              updated.extractionStatus,
+          extractionStatus:
+            updated.extractionStatus,
 
-            verificationStatus:
-              updated.verificationStatus,
+          verificationStatus:
+            updated.verificationStatus,
 
-            extractedData:
-              updated.extractedData,
+          extractedData:
+            updated.extractedData,
 
-            verifiedBy:
-              updated.verifiedBy,
+          verifiedBy:
+            updated.verifiedBy,
 
-            verifiedAt:
-              updated.verifiedAt
-          }
-        });
-
+          verifiedAt:
+            updated.verifiedAt
+        }
+      });
 
     } catch (error) {
       console.error(
@@ -1052,18 +987,11 @@ export const verifyMedicalRecord =
         error
       );
 
-
-      return res
-        .status(500)
-        .json({
-          message:
-            error.message
-        });
+      return res.status(500).json({
+        message: error.message
+      });
     }
   };
-
-
-
 // ==========================================
 // DELETE MEDICAL RECORD
 // DELETE /api/medical-records/:recordId

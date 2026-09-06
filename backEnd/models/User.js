@@ -4,7 +4,8 @@ const userSchema = new mongoose.Schema({
 
     role: {
         type: String,
-        required: true
+        required: true,
+        enum: ["donor", "recipient", "hospital", "admin"]
     },
 
     fullName: {
@@ -50,8 +51,13 @@ const userSchema = new mongoose.Schema({
 
     verificationState: {
         type: String,
-        enum: ['Pending', 'Verified'],
-        default: 'Pending'
+        enum: ["Pending", "Verified", "Rejected"],
+        default: "Pending"
+    },
+        accountStatus: {
+        type: String,
+        enum: ["Active", "Suspended"],
+        default: "Active"
     },
 
     createdAt: {

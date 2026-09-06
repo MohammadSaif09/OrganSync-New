@@ -3,31 +3,33 @@ import OrganRequest from "../models/OrganRequest.js";
 
 // ==========================================
 // POST /api/allocations
-// body: { requestId, hospitalId }
+// body: { requestId }
+// hospitalId comes from authenticated hospital
 // ==========================================
 export const createAllocation = async (req, res) => {
   try {
-    const {
-      requestId,
-      hospitalId
-    } = req.body;
+    const { requestId } = req.body;
 
-    if (!requestId || !hospitalId) {
+    if (!requestId) {
       return res.status(400).json({
-        message:
-          "requestId and hospitalId are required"
+        message: "requestId is required"
       });
     }
 
+    if (!req.user?._id) {
+      return res.status(401).json({
+        message: "Authentication required"
+      });
+    }
+
+    const hospitalId = req.user._id;
+
     const request =
-      await OrganRequest.findById(
-        requestId
-      );
+      await OrganRequest.findById(requestId);
 
     if (!request) {
       return res.status(404).json({
-        message:
-          "Organ request not found"
+        message: "Organ request not found"
       });
     }
 
@@ -51,7 +53,7 @@ export const createAllocation = async (req, res) => {
 
     const existing =
       await Allocation.findOne({
-        requestId
+        requestId: request._id
       });
 
     if (existing) {
@@ -63,30 +65,20 @@ export const createAllocation = async (req, res) => {
 
     const allocation =
       await Allocation.create({
-        requestId:
-          request._id,
+        requestId: request._id,
+        donorId: request.donorId,
+        recipientId: request.recipientId,
+        pledgeId: request.pledgeId,
 
-        donorId:
-          request.donorId,
-
-        recipientId:
-          request.recipientId,
-
-        pledgeId:
-          request.pledgeId,
-
+        // SECURITY:
+        // authenticated hospital only
         hospitalId,
 
-        organ:
-          request.organ,
-
-        status:
-          "Hospital Review"
+        organ: request.organ,
+        status: "Hospital Review"
       });
 
-    request.status =
-      "Hospital Review";
-
+    request.status = "Hospital Review";
     await request.save();
 
     const populated =
@@ -101,11 +93,11 @@ export const createAllocation = async (req, res) => {
           "recipientId",
           "fullName email phone bloodGroup"
         )
+        .populate("pledgeId")
+        .populate("requestId")
         .populate(
-          "pledgeId"
-        )
-        .populate(
-          "requestId"
+          "hospitalId",
+          "fullName email phone"
         );
 
     return res.status(201).json({
@@ -121,7 +113,9 @@ export const createAllocation = async (req, res) => {
     );
 
     return res.status(500).json({
-      message: error.message
+      message:
+        error.message ||
+        "Unable to create allocation"
     });
   }
 };

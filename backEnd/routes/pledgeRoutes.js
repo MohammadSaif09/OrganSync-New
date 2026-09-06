@@ -1,15 +1,80 @@
-import express from 'express';
-import { getPledges, createPledge, deletePledge } from '../controllers/pledgeController.js';
+import express from "express";
+
+import {
+  getPledges,
+  createPledge,
+  deletePledge
+} from "../controllers/pledgeController.js";
+
+import {
+  protect,
+  allowRoles,
+  sameUserOrRole
+} from "../middleware/authMiddleware.js";
+
 
 const router = express.Router();
 
-// GET /api/pledges/:userId — list a donor's pledges
-router.get('/pledges/:userId', getPledges);
 
-// POST /api/pledges/:userId — create a new pledge
-router.post('/pledges/:userId', createPledge);
+// ==========================================
+// DONOR PLEDGES
+// ==========================================
 
-// DELETE /api/pledges/:userId/:pledgeId — withdraw a pledge
-router.delete('/pledges/:userId/:pledgeId', deletePledge);
+router.get(
+  "/pledges/:userId",
+
+  protect,
+
+  allowRoles(
+    "donor",
+    "admin"
+  ),
+
+  sameUserOrRole(
+    "userId",
+    "admin"
+  ),
+
+  getPledges
+);
+
+
+// ==========================================
+// CREATE PLEDGE
+// ==========================================
+
+router.post(
+  "/pledges/:userId",
+
+  protect,
+
+  allowRoles("donor"),
+
+  sameUserOrRole(
+    "userId"
+  ),
+
+  createPledge
+);
+
+
+// ==========================================
+// DELETE / WITHDRAW PLEDGE
+// ==========================================
+
+router.delete(
+  "/pledges/:userId/:pledgeId",
+
+  protect,
+
+  allowRoles("donor"),
+
+  sameUserOrRole(
+    "userId"
+  ),
+
+  deletePledge
+);
+
 
 export default router;

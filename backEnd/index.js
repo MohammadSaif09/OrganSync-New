@@ -13,6 +13,8 @@ import matchRoutes from "./routes/matchRoutes.js";
 import hospitalRoutes from "./routes/hospitalRoutes.js";
 import allocationRoutes from "./routes/allocationRoutes.js";
 import matchRecommendationRoutes from "./routes/matchRecommendationRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import auditLogRoutes from "./routes/auditLogRoutes.js";
 
 dotenv.config();
 
@@ -26,6 +28,11 @@ app.use(
   "/api",
   matchRoutes
 );
+// Admin
+app.use("/api", adminRoutes);
+
+// Audit Logs
+app.use("/api", auditLogRoutes);
 
 // Hospital
 app.use(

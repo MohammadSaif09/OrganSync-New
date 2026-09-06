@@ -13,9 +13,17 @@ import {
   deleteMedicalRecord
 } from "../controllers/medicalRecordController.js";
 
+import {
+  protect,
+  allowRoles,
+  sameUserOrRole,
+  verifiedHospitalOnly
+} from "../middleware/authMiddleware.js";
 
-const router =
-  express.Router();
+import MedicalRecord from "../models/MedicalRecord.js";
+
+
+const router = express.Router();
 
 
 // ==========================================
@@ -30,11 +38,7 @@ const uploadDirectory =
   );
 
 
-if (
-  !fs.existsSync(
-    uploadDirectory
-  )
-) {
+if (!fs.existsSync(uploadDirectory)) {
   fs.mkdirSync(
     uploadDirectory,
     {
@@ -50,6 +54,7 @@ if (
 
 const storage =
   multer.diskStorage({
+
     destination:
       (req, file, cb) => {
         cb(
@@ -60,10 +65,10 @@ const storage =
 
     filename:
       (req, file, cb) => {
+
         const uniqueName =
           `${Date.now()}-${Math.round(
-            Math.random() *
-              1e9
+            Math.random() * 1e9
           )}`;
 
         const extension =
@@ -87,6 +92,7 @@ const storage =
 
 const fileFilter =
   (req, file, cb) => {
+
     const allowedMimeTypes = [
       "application/pdf",
       "image/jpeg",
@@ -95,14 +101,12 @@ const fileFilter =
       "application/octet-stream"
     ];
 
-
     const allowedExtensions = [
       ".pdf",
       ".jpg",
       ".jpeg",
       ".png"
     ];
-
 
     const extension =
       path
@@ -111,36 +115,15 @@ const fileFilter =
         )
         .toLowerCase();
 
-
-    console.log(
-      "Upload file:",
-      file.originalname
-    );
-
-
-    console.log(
-      "Detected MIME type:",
-      file.mimetype
-    );
-
-
-    console.log(
-      "Detected extension:",
-      extension
-    );
-
-
     const validMime =
       allowedMimeTypes.includes(
         file.mimetype
       );
 
-
     const validExtension =
       allowedExtensions.includes(
         extension
       );
-
 
     if (
       validMime &&
@@ -151,7 +134,6 @@ const fileFilter =
         true
       );
     }
-
 
     return cb(
       new Error(
@@ -168,6 +150,7 @@ const fileFilter =
 
 const upload =
   multer({
+
     storage,
 
     fileFilter,
@@ -182,36 +165,141 @@ const upload =
 
 
 // ==========================================
-// ROUTES
+// RECORD OWNERSHIP CHECK
 // ==========================================
 
+const recordOwnerOrHospital =
+  async (req, res, next) => {
 
-// ------------------------------------------
-// Upload medical document
-// POST /api/medical-records/:userId/upload
-// ------------------------------------------
+    try {
+
+      const record =
+        await MedicalRecord.findById(
+          req.params.recordId
+        ).select("user");
+
+      if (!record) {
+        return res.status(404).json({
+          message:
+            "Medical record not found"
+        });
+      }
+
+      const role =
+        String(
+          req.user?.role || ""
+        ).toLowerCase();
+
+      if (
+        String(record.user) ===
+          String(req.user._id) ||
+        role === "hospital" ||
+        role === "admin"
+      ) {
+        return next();
+      }
+
+      return res.status(403).json({
+        message:
+          "You cannot access this medical record"
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Medical record authorization error:",
+        error
+      );
+
+      return res.status(500).json({
+        message:
+          "Unable to authorize medical record"
+      });
+    }
+  };
+
+
+const recordOwnerOnly =
+  async (req, res, next) => {
+
+    try {
+
+      const record =
+        await MedicalRecord.findById(
+          req.params.recordId
+        ).select("user");
+
+      if (!record) {
+        return res.status(404).json({
+          message:
+            "Medical record not found"
+        });
+      }
+
+      if (
+        String(record.user) !==
+        String(req.user._id)
+      ) {
+        return res.status(403).json({
+          message:
+            "You cannot modify another user's medical record"
+        });
+      }
+
+      next();
+
+    } catch (error) {
+
+      console.error(
+        "Medical record authorization error:",
+        error
+      );
+
+      return res.status(500).json({
+        message:
+          "Unable to authorize medical record"
+      });
+    }
+  };
+
+
+// ==========================================
+// UPLOAD OWN MEDICAL DOCUMENT
+// ==========================================
 
 router.post(
   "/:userId/upload",
 
+  protect,
+
+  allowRoles(
+    "recipient",
+    "donor"
+  ),
+
+  sameUserOrRole(
+    "userId"
+  ),
+
   (req, res, next) => {
-    upload.single(
-      "file"
-    )(
+
+    upload.single("file")(
       req,
       res,
       (error) => {
+
         if (error) {
+
           console.error(
             "Medical Upload Error:",
             error.message
           );
 
-
           if (
             error instanceof
             multer.MulterError
           ) {
+
             if (
               error.code ===
               "LIMIT_FILE_SIZE"
@@ -225,7 +313,6 @@ router.post(
             }
           }
 
-
           return res
             .status(400)
             .json({
@@ -233,7 +320,6 @@ router.post(
                 error.message
             });
         }
-
 
         next();
       }
@@ -244,58 +330,114 @@ router.post(
 );
 
 
-// ------------------------------------------
-// View actual medical document
-//
-// Keep this before /:userId
-// ------------------------------------------
+// ==========================================
+// VIEW DOCUMENT
+// ==========================================
 
 router.get(
   "/file/:recordId",
+
+  protect,
+
+  recordOwnerOrHospital,
+
   getMedicalRecordFile
 );
 
 
-// ------------------------------------------
-// Analyze medical record
-// POST /api/medical-records/:recordId/analyze
-// ------------------------------------------
+// ==========================================
+// ANALYZE OWN RECORD
+// ==========================================
 
 router.post(
   "/:recordId/analyze",
+
+  protect,
+
+  allowRoles(
+    "recipient",
+    "donor"
+  ),
+
+  recordOwnerOnly,
+
   analyzeMedicalRecord
 );
 
-// Verify / Reject medical record
+
+// ==========================================
+// HOSPITAL VERIFY / REJECT
+// ==========================================
+
 router.patch(
   "/:recordId/verify",
+
+  protect,
+
+  verifiedHospitalOnly,
+
   verifyMedicalRecord
 );
 
 
+// ==========================================
+// HOSPITAL PENDING DOCUMENTS
+// IMPORTANT: keep before /:userId
+// ==========================================
+
 router.get(
   "/hospital/pending",
+
+  protect,
+
+  verifiedHospitalOnly,
+
   getPendingMedicalRecords
 );
 
-// ------------------------------------------
-// Get medical records for recipient
-// GET /api/medical-records/:userId
-// ------------------------------------------
+
+// ==========================================
+// USER'S RECORDS
+// ==========================================
 
 router.get(
   "/:userId",
+
+  protect,
+
+  allowRoles(
+    "recipient",
+    "donor",
+    "hospital",
+    "admin"
+  ),
+
+  sameUserOrRole(
+    "userId",
+    "hospital",
+    "admin"
+  ),
+
   getMedicalRecordsByUser
 );
 
 
-// ------------------------------------------
-// Delete medical record
-// DELETE /api/medical-records/:recordId
-// ------------------------------------------
+// ==========================================
+// DELETE OWN RECORD
+// ==========================================
 
 router.delete(
   "/:recordId",
+
+  protect,
+
+  allowRoles(
+    "recipient",
+    "donor"
+  ),
+
+  recordOwnerOnly,
+
   deleteMedicalRecord
 );
 

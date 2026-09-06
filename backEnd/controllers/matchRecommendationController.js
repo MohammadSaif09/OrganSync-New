@@ -12,6 +12,7 @@ import Pledge
 
 // ==========================================
 // HOSPITAL CREATES RECOMMENDATION
+// POST /api/match-recommendations
 // ==========================================
 
 export const createMatchRecommendation =
@@ -23,7 +24,6 @@ export const createMatchRecommendation =
         recipientId,
         donorId,
         pledgeId,
-        hospitalId,
         organ,
         bloodGroup,
         screeningStatus,
@@ -33,26 +33,55 @@ export const createMatchRecommendation =
       } = req.body;
 
 
+      // Hospital comes from authenticated JWT
+      const hospitalId =
+        req.user?._id;
+
+
+      // ======================================
+      // AUTH CHECK
+      // ======================================
+
+      if (!hospitalId) {
+        return res.status(401).json({
+          message:
+            "Authentication required."
+        });
+      }
+
+
+      // ======================================
+      // REQUIRED FIELDS
+      // ======================================
+
       if (
         !recipientId ||
         !donorId ||
         !pledgeId ||
-        !hospitalId ||
         !organ ||
         !bloodGroup
       ) {
         return res.status(400).json({
           message:
-            "Recipient, donor, pledge, hospital, organ and blood group are required."
+            "Recipient, donor, pledge, organ and blood group are required."
         });
       }
 
 
+      // ======================================
+      // VALIDATE IDS
+      // ======================================
+
       if (
-        !mongoose.Types.ObjectId.isValid(recipientId) ||
-        !mongoose.Types.ObjectId.isValid(donorId) ||
-        !mongoose.Types.ObjectId.isValid(pledgeId) ||
-        !mongoose.Types.ObjectId.isValid(hospitalId)
+        !mongoose.Types.ObjectId.isValid(
+          recipientId
+        ) ||
+        !mongoose.Types.ObjectId.isValid(
+          donorId
+        ) ||
+        !mongoose.Types.ObjectId.isValid(
+          pledgeId
+        )
       ) {
         return res.status(400).json({
           message:
@@ -61,13 +90,21 @@ export const createMatchRecommendation =
       }
 
 
-      // Verify recipient
+      // ======================================
+      // VERIFY RECIPIENT
+      // ======================================
+
       const recipient =
-        await User.findById(recipientId);
+        await User.findById(
+          recipientId
+        );
 
       if (
         !recipient ||
-        recipient.role !== "recipient"
+        String(
+          recipient.role
+        ).toLowerCase() !==
+          "recipient"
       ) {
         return res.status(404).json({
           message:
@@ -76,13 +113,21 @@ export const createMatchRecommendation =
       }
 
 
-      // Verify donor
+      // ======================================
+      // VERIFY DONOR
+      // ======================================
+
       const donor =
-        await User.findById(donorId);
+        await User.findById(
+          donorId
+        );
 
       if (
         !donor ||
-        donor.role !== "donor"
+        String(
+          donor.role
+        ).toLowerCase() !==
+          "donor"
       ) {
         return res.status(404).json({
           message:
@@ -91,28 +136,40 @@ export const createMatchRecommendation =
       }
 
 
-      // Verify hospital
+      // ======================================
+      // VERIFY AUTHENTICATED HOSPITAL
+      // ======================================
+
       const hospital =
-        await User.findById(hospitalId);
+        await User.findById(
+          hospitalId
+        );
 
       if (
         !hospital ||
-        hospital.role !== "hospital"
+        String(
+          hospital.role
+        ).toLowerCase() !==
+          "hospital"
       ) {
-        return res.status(404).json({
+        return res.status(403).json({
           message:
-            "Valid hospital not found."
+            "Hospital access required."
         });
       }
 
 
-      // Verify the actual pledge
+      // ======================================
+      // VERIFY ACTUAL DONOR PLEDGE
+      // ======================================
+
       const pledge =
         await Pledge.findOne({
           _id: pledgeId,
           donorId,
           organ,
-          status: "Active & Pledged"
+          status:
+            "Active & Pledged"
         });
 
       if (!pledge) {
@@ -123,13 +180,18 @@ export const createMatchRecommendation =
       }
 
 
-      // Prevent duplicate active recommendation
+      // ======================================
+      // PREVENT DUPLICATE RECOMMENDATION
+      // ======================================
+
       const existing =
         await MatchRecommendation.findOne({
           recipientId,
           donorId,
           pledgeId,
-          status: "Recommended"
+          hospitalId,
+          status:
+            "Recommended"
         });
 
       if (existing) {
@@ -140,28 +202,60 @@ export const createMatchRecommendation =
       }
 
 
+      // ======================================
+      // SAFE COMPLETENESS VALUE
+      // ======================================
+
+      const completeness =
+        Math.max(
+          0,
+          Math.min(
+            100,
+            Number(
+              dataCompleteness
+            ) || 0
+          )
+        );
+
+
+      // ======================================
+      // CREATE RECOMMENDATION
+      // ======================================
+
       const recommendation =
         await MatchRecommendation.create({
+
           recipientId,
+
           donorId,
+
           pledgeId,
+
+          // JWT-derived hospital
           hospitalId,
+
           organ,
+
           bloodGroup,
+
           screeningStatus:
             screeningStatus ||
             "Potential basic match",
 
           dataCompleteness:
-            Number(dataCompleteness) || 0,
+            completeness,
 
           factors:
-            Array.isArray(factors)
+            Array.isArray(
+              factors
+            )
               ? factors
               : [],
 
           missingEvidence:
-            Array.isArray(missingEvidence)
+            Array.isArray(
+              missingEvidence
+            )
               ? missingEvidence
               : [],
 
@@ -173,6 +267,7 @@ export const createMatchRecommendation =
       return res.status(201).json({
         message:
           "Match recommendation sent to recipient.",
+
         recommendation
       });
 
@@ -195,6 +290,8 @@ export const createMatchRecommendation =
 
 // ==========================================
 // RECIPIENT GETS RECOMMENDATIONS
+// GET /api/match-recommendations/
+// recipient/:recipientId
 // ==========================================
 
 export const getRecipientRecommendations =
@@ -207,6 +304,10 @@ export const getRecipientRecommendations =
       } = req.params;
 
 
+      // ======================================
+      // VALIDATE ID
+      // ======================================
+
       if (
         !mongoose.Types.ObjectId.isValid(
           recipientId
@@ -218,6 +319,35 @@ export const getRecipientRecommendations =
         });
       }
 
+
+      // Route middleware already checks
+      // recipient ownership.
+      // Extra controller protection included.
+      const role =
+        String(
+          req.user?.role || ""
+        ).toLowerCase();
+
+
+      if (
+        role !== "admin" &&
+        String(
+          req.user?._id
+        ) !==
+          String(
+            recipientId
+          )
+      ) {
+        return res.status(403).json({
+          message:
+            "You cannot access another recipient's recommendations."
+        });
+      }
+
+
+      // ======================================
+      // LOAD RECOMMENDATIONS
+      // ======================================
 
       const recommendations =
         await MatchRecommendation.find({
@@ -239,6 +369,7 @@ export const getRecipientRecommendations =
       const result =
         recommendations.map(
           (item) => ({
+
             id:
               item._id,
 
@@ -246,18 +377,21 @@ export const getRecipientRecommendations =
               item.donorId?._id,
 
             donorName:
-              item.donorId?.fullName ||
+              item.donorId
+                ?.fullName ||
               "Donor",
 
             donorBloodGroup:
-              item.donorId?.bloodGroup ||
+              item.donorId
+                ?.bloodGroup ||
               null,
 
             hospitalId:
               item.hospitalId?._id,
 
             hospitalName:
-              item.hospitalId?.fullName ||
+              item.hospitalId
+                ?.fullName ||
               "Hospital",
 
             pledgeId:
@@ -290,9 +424,11 @@ export const getRecipientRecommendations =
         );
 
 
-      return res.status(200).json(
-        result
-      );
+      return res
+        .status(200)
+        .json(
+          result
+        );
 
 
     } catch (error) {
@@ -309,8 +445,12 @@ export const getRecipientRecommendations =
       });
     }
   };
-  // ==========================================
-// UPDATE RECOMMENDATION STATUS
+
+
+// ==========================================
+// RECIPIENT UPDATES RECOMMENDATION
+// PATCH /api/match-recommendations/
+// :recommendationId/status
 // ==========================================
 
 export const updateRecommendationStatus =
@@ -318,8 +458,35 @@ export const updateRecommendationStatus =
 
     try {
 
-      const { recommendationId } = req.params;
-      const { status, recipientId } = req.body;
+      const {
+        recommendationId
+      } = req.params;
+
+      const {
+        status
+      } = req.body;
+
+
+      // Authenticated recipient
+      const recipientId =
+        req.user?._id;
+
+
+      // ======================================
+      // AUTH CHECK
+      // ======================================
+
+      if (!recipientId) {
+        return res.status(401).json({
+          message:
+            "Authentication required."
+        });
+      }
+
+
+      // ======================================
+      // VALIDATE RECOMMENDATION ID
+      // ======================================
 
       if (
         !mongoose.Types.ObjectId.isValid(
@@ -332,8 +499,16 @@ export const updateRecommendationStatus =
         });
       }
 
+
+      // ======================================
+      // VALIDATE STATUS
+      // ======================================
+
       if (
-        !["Request Sent", "Declined"].includes(
+        ![
+          "Request Sent",
+          "Declined"
+        ].includes(
           status
         )
       ) {
@@ -343,10 +518,16 @@ export const updateRecommendationStatus =
         });
       }
 
+
+      // ======================================
+      // FIND RECOMMENDATION
+      // ======================================
+
       const recommendation =
         await MatchRecommendation.findById(
           recommendationId
         );
+
 
       if (!recommendation) {
         return res.status(404).json({
@@ -355,13 +536,18 @@ export const updateRecommendationStatus =
         });
       }
 
-      // Make sure recipient can only update
-      // their own recommendation
+
+      // ======================================
+      // OWNERSHIP CHECK
+      // ======================================
+
       if (
-        recipientId &&
         String(
           recommendation.recipientId
-        ) !== String(recipientId)
+        ) !==
+        String(
+          recipientId
+        )
       ) {
         return res.status(403).json({
           message:
@@ -369,28 +555,43 @@ export const updateRecommendationStatus =
         });
       }
 
+
+      // ======================================
+      // ONLY ACTIVE RECOMMENDATION
+      // CAN BE UPDATED
+      // ======================================
+
       if (
         recommendation.status !==
         "Recommended"
       ) {
-        return res.status(400).json({
+        return res.status(409).json({
           message:
             `Recommendation is already ${recommendation.status}.`
         });
       }
+
+
+      // ======================================
+      // UPDATE
+      // ======================================
 
       recommendation.status =
         status;
 
       await recommendation.save();
 
+
       return res.status(200).json({
+
         message:
-          status === "Request Sent"
+          status ===
+          "Request Sent"
             ? "Recommendation converted to donor request."
             : "Recommendation declined.",
 
         recommendation: {
+
           id:
             recommendation._id,
 
@@ -398,6 +599,7 @@ export const updateRecommendationStatus =
             recommendation.status
         }
       });
+
 
     } catch (error) {
 
